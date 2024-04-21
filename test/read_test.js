@@ -13,10 +13,16 @@ function toArrayBuffer(buf) {
   }
   return ab;
 }
+// ArrayBuffer ---> Buffer
+function toBuffer(ab) {
+  var buf = new Buffer(ab.byteLength);
+  var view = new Uint8Array(ab);
+  for (var i = 0; i < buf.length; ++i) {
+    buf[i] = view[i];
+  }
+  return buf;
+}
 
-var r, s;
+var r;
 console.log(r = NBT.Reader(toArrayBuffer(binData), !0));
 console.log(JSON.stringify(r));
-console.log(s = NBT.Writer(r, !0));
-fs.writeFileSync("regen.mcstructure", new DataView(s))
-console.log(NBT.Reader(s, !0));
