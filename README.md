@@ -27,7 +27,7 @@ Tag name can be an empty string like above.
 The comparison table between the type string and the actual type is as follows:
 | Tag ID | Tag Type | Tag Type String |
 |  ----  | ---- | ---- |
-| 0  | TAG_End | **none** |
+| 0  | TAG_End | null |
 | 1  | TAG_Byte | i8 |
 | 2  | TAG_Short | i16 |
 | 3  | TAG_Int | i32 |
