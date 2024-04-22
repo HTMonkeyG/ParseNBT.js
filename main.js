@@ -1,6 +1,3 @@
-const { off } = require("process");
-const { isDataView } = require("util/types");
-
 var NBT = function () {
   if (!ArrayBuffer)
     throw new Error("Missing ArrayBuffer");
