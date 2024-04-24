@@ -83,7 +83,6 @@ var NBT = function () {
       if (offset + b > abuf.byteLength) {
         var t1 = new ArrayBuffer(offset + b), t2 = new DataView(t1), t3 = new Uint8Array(t1);
         t3.set(port);
-        t3.fill(0, offset, offset + b);
         abuf = t1, dtv = t2, port = t3;
       }
       dtv["set" + a](offset, (offset += b, c), isBedrock);
@@ -166,4 +165,4 @@ var NBT = function () {
   }
 }();
 
-module.exports ? (module.exports = NBT) : (window.NBT = NBT);
+module ? (module.exports = NBT) : (window.NBT = NBT);
