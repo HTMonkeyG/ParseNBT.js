@@ -1,12 +1,28 @@
 # ParseNBT.js
-&emsp;ParseNBT.js is JavaScript-based minecraft NBT parser and serializer.
+&emsp;ParseNBT.js is a JavaScript-based minecraft NBT parser and serializer.
 ## Usage
 **Reader**
 ```js
 const fs = require('fs'), NBT = require('main.js');
 
 var binData = fs.readFileSync('./path/of/nbt.nbt');
-console.log(NBT.Reader(binData).buffer);
+// The NBT.Reaer returns an object
+console.log(NBT.Reader(binData));
+```
+**Writer**
+```js
+const fs = require('fs'), NBT = require('main.js');
+
+var nbtData = {
+  "comp>": {
+    "i32>count": 100,
+    "list>pos": [ "i32", 0, 0, 0 ],
+    "i64>ticks": { "low": 114514, "high": 1919810 }
+  }
+};
+
+// The NBT.Writer returns a buffer
+console.log(NBT.Writer(nbtData));
 ```
 
 ## Data Structure
@@ -42,5 +58,5 @@ Tag name can be an empty string like above.
 | 12 | TAG_Long_Array | a64 |
 
 &emsp;Especially, the type of elements in TAG_List is at the first element of the list array.
-And for any TAG_Long, it'll be formatted into an object which has two values named ```low``` and ```high```, 
+And for TAG_Long, it'll be formatted into an object which has two values named ```low``` and ```high```, 
 that produces the high 32 bits and the low 32 bits separately.
