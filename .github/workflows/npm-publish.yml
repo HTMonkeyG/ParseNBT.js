@@ -29,10 +29,6 @@ jobs:
       # 安装依赖，相当于 npm ci
       - name: Install dependencies
         run: npm install
-      # 执行构建步骤
-      - name: 构建
-        run: |
-          npm run build
       - run: npm publish
         env:
           # 在第三步中设置的 NPM_TOKEN
