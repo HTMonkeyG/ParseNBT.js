@@ -22,7 +22,9 @@ var nbtData = {
 };
 
 // The NBT.Writer returns a buffer
-console.log(NBT.Writer(nbtData));
+// The second param determined the byte order
+// little-endian if it's true
+console.log(NBT.Writer(nbtData, !0));
 ```
 
 ## Data Structure

@@ -1,6 +1,6 @@
-const fs = require('fs'), NBT = require('../main.js');
+const fs = require('fs'), NBT = require('../main');
 
-var binData = fs.readFileSync(__dirname + '/temp4.mcstructure');
+var binData = fs.readFileSync(__dirname + '/test.mcstructure');
 
 console.log(binData);
 
@@ -18,5 +18,4 @@ var r, s;
 console.log(r = NBT.Reader(toArrayBuffer(binData), !0));
 console.log(JSON.stringify(r));
 console.log(s = NBT.Writer(r, !0));
-fs.writeFileSync("regen.mcstructure", new DataView(s))
 console.log(NBT.Reader(s, !0));
