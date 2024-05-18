@@ -1,33 +1,50 @@
-# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
-# For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
-
 name: Node.js Package
-
+ 
+# 触发工作流程的事件
 on:
-  release:
-    types: [created]
-
+  push:
+    branches:
+      - main
+      - "releases/**"
+      - dev
+ 
+# 按顺序运行作业
 jobs:
-  build:
+  publish-gpr:
+    # 指定的运行器环境
     runs-on: ubuntu-latest
+    # 设置 node 版本
+    strategy:
+      matrix:
+        node-version: [14]
     steps:
-      - uses: actions/checkout@v4
+      # 拉取 github 仓库代码
+      - uses: actions/checkout@v3
+      # 设定 node 环境
       - uses: actions/setup-node@v3
         with:
-          node-version: 16
-      - run: npm ci
-      - run: npm test
-
-  publish-npm:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 16
+          node-version: ${{ matrix.node-version }}
+          # 默认配置
           registry-url: https://registry.npmjs.org/
-      - run: npm ci
+      # 安装依赖，相当于 npm ci
+      - name: Install dependencies
+        run: npm install
+      # 执行构建步骤
+      - name: 构建
+        run: |
+          npm run build
+      # 执行部署步骤
+      - name: 部署
+        # 默认配置
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          # 在第三步中设置的 ACCESS_TOKEN 
+          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          # 指定推送到的远程分支
+          BRANCH: pages
+          # 指定构建之后的产出路径
+          FOLDER: build
       - run: npm publish
         env:
+          # 在第三步中设置的 NPM_TOKEN
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
