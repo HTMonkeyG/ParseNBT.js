@@ -32,7 +32,7 @@ console.log(NBT.Writer(nbtData, !0));
 &emsp;For example:
 ```json
 {
-  "comp>": {
+  "comp>": { 
     "i32>count": 100,
     "list>pos": [ "i32", 0, 0, 0 ],
     "i64>ticks": { "low": 114514, "high": 1919810 }
