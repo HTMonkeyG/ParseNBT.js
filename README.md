@@ -32,7 +32,7 @@ console.log(NBT.Writer(nbtData, !0));
 ```
 
 ## API
-See [API.md](https://github.com/HTMonkeyG/ParseNBT.js/API.md)
+See [API.md](https://github.com/HTMonkeyG/ParseNBT.js/blob/main/API.md)
 
 ## Data Structure
 &emsp;ParseNBT.js' output uses a special data structure for keys of the object.  
