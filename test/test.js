@@ -19,3 +19,5 @@ console.log(r = NBT.Reader(toArrayBuffer(binData), !0));
 console.log(JSON.stringify(r));
 console.log(s = NBT.Writer(r, !0));
 console.log(NBT.Reader(s, !0));
+binData = fs.readFileSync(__dirname + "/a.nbt")
+console.log(NBT.ReadSerial(toArrayBuffer(binData), !0))

@@ -80,8 +80,18 @@ var NBT = function () {
         b.push(this[4]());
       return b
     }.bind(func);
-    if (func[r[offset]]) return func[r[offset]]();
-    else throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
+    func["root"] = function () {
+      var b = {}, c = r[offset], d;
+      if (this[c]) {
+        offset++;
+        d = this[8]();
+        b[typeR[c] + ">" + d] = this[c]();
+      } else
+        throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
+      return b
+    }.bind(func);
+    
+    return func["root"]();
   }
 
   /**
@@ -245,12 +255,20 @@ var NBT = function () {
         b.push(this[4]());
       return b
     }.bind(func);
+    func["root"] = function () {
+      var b = {}, c = r[offset], d;
+      if (this[c]) {
+        offset++;
+        d = this[8]();
+        b[typeR[c] + ">" + d] = this[c]();
+      } else
+        throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
+      return b
+    }.bind(func);
 
     var result = [];
-    if (func[r[offset]]) result.push(func[r[offset]]());
-    else throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
     while (func[r[offset]])
-      result.push(func[r[offset]]());
+      result.push(func["root"]());
     return result
   }
   return {
