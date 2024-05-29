@@ -251,6 +251,7 @@ var NBT = function () {
     else throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
     while (func[r[offset]])
       result.push(func[r[offset]]());
+    return result
   }
   return {
     Reader: Reader,
