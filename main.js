@@ -7,13 +7,8 @@ var NBT = function () {
     throw new Error("Missing Uint8Array");
   var typeR = { 0: "null", 1: "i8", 2: "i16", 3: "i32", 4: "i64", 5: "f32", 6: "f64", 7: "a8", 8: "str", 9: "list", 10: "comp", 11: "a32", 12: "a64" }
     , typeW = { "null": 0, "i8": 1, "i16": 2, "i32": 3, "i64": 4, "f32": 5, "f64": 6, "a8": 7, "str": 8, "list": 9, "comp": 10, "a32": 11, "a64": 12 };
-  /**
-   * Read NBT data in buffer
-   * @param {ArrayBuffer} buf - Input buffer
-   * @param {Boolean} isLE - True if read as little endian
-   * @returns
-   */
-  function Reader(buf, isLE) {
+
+  function ReaderProto(buf, isLE, isSerial) {
     function g(b, c) { return a["get" + b](offset, (offset += c, isBedrock)) }
     function fromUtf8(a) {
       var b, c = [];
@@ -22,7 +17,7 @@ var NBT = function () {
       return String.fromCharCode.apply(null, c)
     }
     var offset = 0, a = new DataView(buf), r = new Uint8Array(buf), isBedrock = !1, func = {};
-    r[1] == 0 && r[2] == 0 && r[3] == 0 && (offset = 8, isBedrock = !0);
+    r[0] == 8 && r[1] == 0 && r[2] == 0 && r[3] == 0 && (offset = 8, isBedrock = !0);
     !!isLE && (isBedrock = isLE);
     func[1] = g.bind(func, "Int8", 1);
     func[2] = g.bind(func, "Int16", 2);
@@ -90,9 +85,32 @@ var NBT = function () {
         throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
       return b
     }.bind(func);
-    
-    return func["root"]();
+    if (isSerial) {
+      var result = [];
+      while (1) {
+        if (func[r[offset]]) result.push(func["root"]());
+        else if (offset < buf.byteLength) offset++;
+        else break;
+      }
+      return result
+    } else return func["root"]();
   }
+
+  /**
+   * Read NBT data in buffer
+   * @param {ArrayBuffer} buf - Input buffer
+   * @param {Boolean} isLE - True if read as little endian
+   * @returns
+   */
+  function Reader(buf, isLE) { return ReaderProto(buf, isLE, !1) }
+
+  /**
+   * Read a series of NBT data
+   * @param {ArrayBuffer} buf - Input buffer
+   * @param {Boolean} isLE - True if read as little endian
+   * @returns {Array} Constains all of the NBT root tags
+   */
+  function ReadSerial(buf, isLE) { return ReaderProto(buf, isLE, !0) }
 
   /**
    * Serialize object of specified structure
@@ -178,99 +196,19 @@ var NBT = function () {
       for (var e of o)
         this[4](e)
     }.bind(func);
-    func[10](c);
+    func["root"] = function (o) {
+      for (var e in o) {
+        var f = e.indexOf(">"), g = typeW[e.substring(0, f)];
+        if (!g) throw new Error("Invalid type name: " + f[0]);
+        this[1](g);
+        this[8](e.substring(f + 1));
+        this[g](o[e]);
+      }
+    }.bind(func);
+    func["root"](c);
     return abuf
   }
 
-  /**
-   * Read a series of NBT data
-   * @param {ArrayBuffer} buf - Input buffer
-   * @param {Boolean} isLE - True if read as little endian
-   * @returns {Array} Constains all of the NBT root tags
-   */
-  function ReadSerial(buf, isLE) {
-    function g(b, c) { return a["get" + b](offset, (offset += c, isBedrock)) }
-    function fromUtf8(a) {
-      var b, c = [];
-      for (b = 0; b < a.length; b++)
-        0 === (128 & a[b]) ? c.push(127 & a[b]) : b + 1 < a.length && 192 === (224 & a[b]) && 128 === (192 & a[b + 1]) ? c.push((31 & a[b]) << 6 | 63 & a[b + 1]) : b + 2 < a.length && 224 === (240 & a[b]) && 128 === (192 & a[b + 1]) && 128 === (192 & a[b + 2]) ? c.push((15 & a[b]) << 12 | (63 & a[b + 1]) << 6 | 63 & a[b + 2]) : b + 3 < a.length && 240 === (248 & a[b]) && 128 === (192 & a[b + 1]) && 128 === (192 & a[b + 2]) && 128 === (192 & a[b + 3]) && c.push((7 & a[b]) << 18 | (63 & a[b + 1]) << 12 | (63 & a[b + 2]) << 6 | 63 & a[b + 3]);
-      return String.fromCharCode.apply(null, c)
-    }
-    var offset = 0, a = new DataView(buf), r = new Uint8Array(buf), isBedrock = !1, func = {};
-    r[1] == 0 && r[2] == 0 && r[3] == 0 && (offset = 8, isBedrock = !0);
-    !!isLE && (isBedrock = isLE);
-    func[1] = g.bind(func, "Int8", 1);
-    func[2] = g.bind(func, "Int16", 2);
-    func["Uint16"] = g.bind(func, "Uint16", 2);
-    func[3] = g.bind(func, "Int32", 4);
-    func[4] = function () { var a = this[3](), b = this[3](); return isBedrock ? { low: a, high: b } : { low: ab, high: a } }.bind(func);
-    func[5] = g.bind(func, "Float32", 4);
-    func[6] = g.bind(func, "Float64", 8);
-    func[7] = function () {
-      var a = this[3]()
-        , b = [];
-      for (; a > 0; a--)
-        b.push(this[1]());
-      return b
-    }.bind(func);
-    func[8] = function () {
-      var l = this["Uint16"](), b;
-      b = fromUtf8(r.slice(offset, offset += l));
-      return b
-    }.bind(func);
-    func[9] = function () {
-      var b = [], c, d;
-      d = this[1](); c = this[3]();
-      b.push(typeR[d]);
-      if (this[d])
-        for (; c > 0; c--)
-          b.push(this[d]());
-      else if (d == 0);
-      else
-        throw new Error(`Invalid tag ID at Byte${offset - 1} : ${r[offset - 1]}`);
-      return b;
-    }.bind(func);
-    func[10] = function () {
-      var b = {}, c, d;
-      while ((c = r[offset]) > 0x00)
-        if (this[c]) {
-          offset++;
-          d = this[8]();
-          b[typeR[c] + ">" + d] = this[c]();
-        } else
-          throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
-      return offset++, b;
-    }.bind(func);
-    func[11] = function () {
-      var a = this[3](),
-        b = [];
-      for (; a > 0; a--)
-        b.push(this[3]());
-      return b
-    }.bind(func);
-    func[12] = function () {
-      var a = this[3](),
-        b = [];
-      for (; a > 0; a--)
-        b.push(this[4]());
-      return b
-    }.bind(func);
-    func["root"] = function () {
-      var b = {}, c = r[offset], d;
-      if (this[c]) {
-        offset++;
-        d = this[8]();
-        b[typeR[c] + ">" + d] = this[c]();
-      } else
-        throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
-      return b
-    }.bind(func);
-
-    var result = [];
-    while (func[r[offset]])
-      result.push(func["root"]());
-    return result
-  }
   return {
     Reader: Reader,
     Writer: Writer,
