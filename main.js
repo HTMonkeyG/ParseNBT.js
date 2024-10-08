@@ -23,7 +23,7 @@ var NBT = function () {
     func[2] = g.bind(func, "Int16", 2);
     func["Uint16"] = g.bind(func, "Uint16", 2);
     func[3] = g.bind(func, "Int32", 4);
-    func[4] = function () { var a = this[3](), b = this[3](); return isBedrock ? { low: a, high: b } : { low: ab, high: a } }.bind(func);
+    func[4] = function () { var a = this[3](), b = this[3](); return isBedrock ? { low: a, high: b } : { low: b, high: a } }.bind(func);
     func[5] = g.bind(func, "Float32", 4);
     func[6] = g.bind(func, "Float64", 8);
     func[7] = function () {
