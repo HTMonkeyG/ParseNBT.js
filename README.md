@@ -66,6 +66,6 @@ Tag name can be an empty string like above.
 | 11 | TAG_Int_Array | a32 |
 | 12 | TAG_Long_Array | a64 |
 
-&emsp;Especially, the type of elements in TAG_List is at the first element of the list array.
+&emsp;Especially, the type of elements in TAG_List is the first element of the list array.
 And for TAG_Long, it'll be formatted into an object which has two values named ```low``` and ```high```, 
 that produces the high 32 bits and the low 32 bits separately.
