@@ -1,7 +1,8 @@
 # API Document
+&emsp;Static methods:
 ```
 /**
- * Read NBT data in buffer
+ * Read NBT data in buffer.
  * @param {ArrayBuffer} buf - Input buffer
  * @param {Boolean} isLE - True if read as little endian
  * @returns
@@ -9,7 +10,7 @@
 NBT.Reader(buf: ArrayBuffer, isLE: Boolean): any
 
 /**
- * Serialize object of specified structure
+ * Serialize NBT object.
  * @param {*} obj - Input object
  * @param {Boolean} isLE - True if write as little endian
  * @returns {ArrayBuffer}
@@ -17,7 +18,7 @@ NBT.Reader(buf: ArrayBuffer, isLE: Boolean): any
 NBT.Writer(obj: any, isLE: Boolean): ArrayBuffer
 
 /**
- * Try to read a series of NBT data
+ * Read concatenated root label sequence.
  * @param {ArrayBuffer} buf - Input buffer
  * @param {Boolean} isLE - True if read as little endian
  * @returns {Array} Constains all of the NBT root tags
