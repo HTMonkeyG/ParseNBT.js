@@ -67,6 +67,38 @@ NBT.Writer(obj: any, littleEndian: Boolean, allowBigInt: Boolean): ArrayBuffer
  * @returns {Array} Array of NBT root tags
  */
 NBT.ReadSerial(buf: ArrayBuffer, littleEndian: Boolean, asBigInt: Boolean): any[]
+
+/**
+ * Create a new NBT object
+ * @returns 
+ */
+create()
+
+/**
+ * Get attribute in NBT object.
+ * @param {*} obj - NBT object
+ * @param {String} type - Value type or "[type]>[key]" formatted key
+ * @param {String|undefined} key - Key
+ * @returns
+ */
+get(obj: any, type: String, key: String|undefined): any
+
+/**
+ * Set attribute in NBT object with validation.
+ * @param {*} obj - Input buffer
+ * @param {String} type - Value type
+ * @param {String} key - Key
+ * @param {*} value - Value
+ * @returns
+ */
+set(obj: any, type: String, key: String, value: any)
+
+/**
+ * Returns the names with valid type-value pair of an NBT object.
+ * @param {*} obj 
+ * @returns {String[]}
+ */
+keys(obj: any): String[]
 ```
 
 ## Instance methods

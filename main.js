@@ -297,6 +297,21 @@ class NBT {
   }
 
   /**
+   * Returns the names with valid type-value pair of an NBT object.
+   * @param {*} obj 
+   * @returns {String[]}
+   */
+  static keys(obj) {
+    var result = [];
+    for (var k of Object.getOwnPropertyNames(obj)) {
+      var l = k.split(">");
+      if (Object.keys(typeW).indexOf(l[0]) != -1)
+        result.push(k)
+    }
+    return result
+  }
+
+  /**
    * Read NBT data in buffer.
    * @param {ArrayBuffer} buf - Input buffer
    * @param {Boolean} littleEndian - Read as little endian if true
