@@ -20,7 +20,7 @@
 &emsp;Especially, the type of elements in TAG_List is the first element of the list array.
 
 &emsp;For TAG_Long, it'll be formatted into an object which has two values named ```low``` and ```high```, 
-which produces the high 32 bits and the low 32 bits separately. BigInt type also can be used in Tag_Long input when allowBigint is true.
+which produces the high 32 bits and the low 32 bits separately. BigInt also can be used in Tag_Long input when allowBigint is true.
 
 &emsp;Example:
 
@@ -72,7 +72,7 @@ NBT.ReadSerial(buf: ArrayBuffer, littleEndian: Boolean, asBigInt: Boolean): any[
  * Create a new NBT object
  * @returns 
  */
-create()
+NBT.create()
 
 /**
  * Get attribute in NBT object.
@@ -81,7 +81,7 @@ create()
  * @param {String|undefined} key - Key
  * @returns
  */
-get(obj: any, type: String, key: String|undefined): any
+NBT.get(obj: any, type: String, key: String|undefined): any
 
 /**
  * Set attribute in NBT object with validation.
@@ -91,14 +91,14 @@ get(obj: any, type: String, key: String|undefined): any
  * @param {*} value - Value
  * @returns
  */
-set(obj: any, type: String, key: String, value: any)
+NBT.set(obj: any, type: String, key: String, value: any)
 
 /**
  * Returns the names with valid type-value pair of an NBT object.
  * @param {*} obj 
  * @returns {String[]}
  */
-keys(obj: any): String[]
+NBT.keys(obj: any): String[]
 ```
 
 ## Instance methods
@@ -115,13 +115,13 @@ new NBT(buf: ArrayBuffer, isLE: Boolean, asBigInt: Boolean)
  * Get input buffer.
  * @returns {ArrayBuffer}
  */
-getBuffer(): ArrayBuffer
+NBT.prototype.getBuffer(): ArrayBuffer
 
 /**
  * Get offset.
  * @returns {Number}
  */
-getOffset(): Number
+NBT.prototype.getOffset(): Number
 
 /**
  * Get number endian.
@@ -129,13 +129,13 @@ getOffset(): Number
  * True if little endian.
  * @returns {Boolean}
  */
-getEndian(): Boolean
+NBT.prototype.getEndian(): Boolean
 
 /**
  * Detect whether reached the end.
  * @returns {Boolean}
  */
-canRead(): Boolean
+NBT.prototype.canRead(): Boolean
 
 /**
  * Read a single NBT root tag.
@@ -143,10 +143,10 @@ canRead(): Boolean
  * Returns null when read to the end.
  * @returns {*|null}
  */
-read(): * | null
+NBT.prototype.read(): * | null
 
 /**
  * Return an iterator of concatenated root label sequence.
  */
-[Symbol.iterator]()
+NBT.prototype[Symbol.iterator]()
 ```
