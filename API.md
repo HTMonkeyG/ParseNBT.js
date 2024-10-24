@@ -76,8 +76,11 @@ NBT.create()
 
 /**
  * Get attribute in NBT object.
+ * 
+ * When type is not a string, it will return the first value with given key,
+ * no matter its type.
  * @param {*} obj - NBT object
- * @param {String} type - Value type or "[type]>[key]" formatted key
+ * @param {String|undefined} type - Value type or "[type]>[key]" formatted key
  * @param {String|undefined} key - Key
  * @returns
  */

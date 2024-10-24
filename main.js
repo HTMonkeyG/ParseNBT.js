@@ -262,15 +262,23 @@ class NBT {
 
   /**
    * Get attribute in NBT object.
+   * 
+   * When type is not a string, it will return the first value with given key,
+   * no matter its type.
    * @param {*} obj - NBT object
-   * @param {String} type - Value type or "[type]>[key]" formatted key
+   * @param {String|undefined} type - Value type or "[type]>[key]" formatted key
    * @param {String|undefined} key - Key
    * @returns
    */
   static get(obj, type, key) {
     if (typeof key == 'undefined')
       return obj[type]
-    else if (Object.keys(typeW).indexOf(type) == -1)
+    else if (typeof type != 'string') {
+      for (var k of NBT.keys(obj))
+        if (k.split(">")[1] == key)
+          return k;
+      return void 0
+    } else if (Object.keys(typeW).indexOf(type) == -1)
       throw new Error("Invalid type name " + type);
     return obj[type + ">" + key]
   }
