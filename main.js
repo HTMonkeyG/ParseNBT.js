@@ -76,7 +76,7 @@ function ReaderProto(buf, forceBE, asBigInt, isSerial) {
     , func = {};
 
   // Detect MCBE NBT header
-  a.getUint32(4, true) - 8 == r.byteLength && (forceBE = true, offset = 8);
+  a.getUint32(4, true) == r.byteLength - 8 && (forceBE = true, offset = 8);
   // Force to read as MCBE type
   !!forceBE && (isBedrock = true);
 
