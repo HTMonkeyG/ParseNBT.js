@@ -88,6 +88,9 @@ NBT.get(obj: any, type: String, key: String|undefined): any
 
 /**
  * Set attribute in NBT object with validation.
+ * 
+ * When type is not a string, it will set the first value matches given key,
+ * with its existing type. If the key not exists, it wont be created.
  * @param {*} obj - Input buffer
  * @param {String} type - Value type
  * @param {String} key - Key
