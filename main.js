@@ -276,7 +276,7 @@ class NBT {
     else if (typeof type != 'string') {
       for (var k of NBT.keys(obj))
         if (k.split(">")[1] == key)
-          return k;
+          return obj[k];
       return void 0
     } else if (Object.keys(typeW).indexOf(type) == -1)
       throw new Error("Invalid type name " + type);
@@ -285,6 +285,9 @@ class NBT {
 
   /**
    * Set attribute in NBT object with validation.
+   * 
+   * When type is not a string, it will set the first value matches given key,
+   * with its existing type. If the key not exists, it wont be created.
    * @param {*} obj - Input buffer
    * @param {String} type - Value type
    * @param {String} key - Key
@@ -292,13 +295,18 @@ class NBT {
    * @returns
    */
   static set(obj, type, key, value) {
-    if (Object.keys(typeW).indexOf(type) == -1)
-      throw new Error("Invalid type name " + type);
     if (key.indexOf(">") != -1)
       throw new Error("Invalid key " + type);
+    if (typeof type != 'string') {
+      for (var k of NBT.keys(obj))
+        if (k.split(">")[1] == key)
+          obj[k] = value;
+      return
+    } else if (Object.keys(typeW).indexOf(type) == -1)
+      throw new Error("Invalid type name " + type);
 
     for (var k of Object.keys(obj))
-      if (k.split(">")[0] == key) {
+      if (k.split(">")[1] == key) {
         delete obj[k];
         break;
       }
