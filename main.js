@@ -64,7 +64,7 @@ function toUtf8(a) {
   return d
 }
 
-function ReaderProto(buf, isLE, asBigInt, isSerial) {
+function ReaderProto(buf, forceBE, asBigInt, isSerial) {
   function g(b, c) {
     return a["get" + b](offset, (offset += c, isBedrock))
   }
@@ -72,12 +72,13 @@ function ReaderProto(buf, isLE, asBigInt, isSerial) {
   var offset = 0
     , a = new DataView(buf)
     , r = new Uint8Array(buf)
-    , isBedrock = !1
+    , isBedrock = false
     , func = {};
 
   // Detect MCBE NBT header
-  r[0] == 8 && r[1] == 0 && r[2] == 0 && r[3] == 0 && (offset = 8, isBedrock = !0);
-  !!isLE && (isBedrock = isLE);
+  a.getUint32(4, true) - 8 == r.byteLength && (forceBE = true, offset = 8);
+  // Force to read as MCBE type
+  !!forceBE && (isBedrock = true);
 
   func["Uint16"] = g.bind(func, "Uint16", 2);
   func[1] = g.bind(func, "Int8", 1);
