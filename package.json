@@ -1,6 +1,6 @@
 {
   "name": "parsenbt-js",
-  "version": "2.2.2",
+  "version": "2.3.0",
   "description": "A JavaScript-based minecraft NBT parser and serializer.",
   "main": "main.js",
   "directories": {

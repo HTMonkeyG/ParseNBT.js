@@ -32,7 +32,7 @@ function detectCircularReferences(obj, allowBigInt) {
   return JSON.parse(JSON.stringify(obj, (_, value) => {
     if (typeof value == 'object' && value !== null) {
       if (cache.has(value))
-        throw new Error("Cannot serialize circular reference to NBT")
+        throw new Error("Cannot serialize circular reference to NBT");
       cache.set(value, true);
     } else if (typeof value == 'bigint' && allowBigInt)
       return {
@@ -344,6 +344,56 @@ class NBT {
         result.push(k)
     }
     return result
+  }
+
+  /**
+   * Recursively detect whether objects are completely equal.
+   * @param {*} a
+   * @param {*} b 
+   * @returns {Boolean}
+   */
+  static equal(a, b) {
+    var visited = new Set();
+    function recursive(a, b) {
+      if (visited.has(a) && visited.has(b) && a === b)
+        return true;
+      if (a === null && b === null)
+        return true;
+      if (a === void 0 && b === void 0)
+        return true;
+      if (a === null || b === null || a === void 0 || b === void 0)
+        return false;
+      if (typeof a !== typeof b)
+        return false;
+      if (typeof a !== 'object')
+        return a === b;
+
+      visited.add(a);
+      visited.add(b);
+
+      if (Array.isArray(a) && Array.isArray(b)) {
+        if (a.length !== b.length)
+          return false;
+        for (let i = 0; i < a.length; i++)
+          if (!recursive(a[i], b[i]))
+            return false;
+        return true;
+      }
+
+      var keys1 = NBT.keys(a)
+        , keys2 = NBT.keys(b);
+
+      if (keys1.length !== keys2.length)
+        return false;
+
+      for (let key of keys1)
+        if (!keys2.includes(key) || !recursive(a[key], b[key], visited))
+          return false;
+
+      return true;
+    }
+
+    return recursive(a, b);
   }
 
   /**
