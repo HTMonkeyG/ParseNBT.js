@@ -2,11 +2,8 @@ name: Node.js Package
  
 # 触发工作流程的事件
 on:
-  push:
-    branches:
-      - main
-      - "releases/**"
-      - dev
+  release:
+    types: [created]
  
 # 按顺序运行作业
 jobs:
