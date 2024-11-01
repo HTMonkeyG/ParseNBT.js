@@ -76,20 +76,27 @@ function ReaderProto(buf, forceBE, asBigInt, isSerial) {
     , func = {};
 
   // Detect MCBE NBT header
-  a.getUint32(4, true) == r.byteLength - 8 && (forceBE = true, offset = 8);
+  buf.length > 8 && a.getUint32(4, true) == r.byteLength - 8 && (forceBE = true, offset = 8);
   // Force to read as MCBE type
   !!forceBE && (isBedrock = true);
 
   func["Uint16"] = g.bind(func, "Uint16", 2);
+  // i8
   func[1] = g.bind(func, "Int8", 1);
+  // i16
   func[2] = g.bind(func, "Int16", 2);
+  // i32
   func[3] = g.bind(func, "Int32", 4);
+  // i64
   func[4] = asBigInt ? g.bind(func, "BigInt64", 8) : function () {
     var a = this[3](), b = this[3]();
     return isBedrock ? { high: b, low: a, } : { high: a, low: b }
   }.bind(func);
+  // f32
   func[5] = g.bind(func, "Float32", 4);
+  // f64
   func[6] = g.bind(func, "Float64", 8);
+  // a8
   func[7] = function () {
     var a = this[3]()
       , b = [];
@@ -97,23 +104,28 @@ function ReaderProto(buf, forceBE, asBigInt, isSerial) {
       b.push(this[1]());
     return b
   }.bind(func);
+  // str
   func[8] = function () {
     var l = this["Uint16"](), b;
     b = fromUtf8(r.slice(offset, offset += l));
     return b
   }.bind(func);
+  // list
   func[9] = function () {
     var b = [], c, d;
-    d = this[1](); c = this[3]();
+    d = this[1]();
+    c = this[3]();
     b.push(typeR[d]);
     if (this[d])
       for (; c > 0; c--)
         b.push(this[d]());
-    else if (d == 0);
+    else if (d == 0)
+      ;
     else
       throw new Error(`Invalid tag ID at Byte${offset - 1} : ${r[offset - 1]}`);
     return b;
   }.bind(func);
+  // comp
   func[10] = function () {
     var b = { __proto__: NBTObjectProto }, c, d;
     while ((c = r[offset]) > 0x00)
@@ -125,6 +137,7 @@ function ReaderProto(buf, forceBE, asBigInt, isSerial) {
         throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
     return offset++, b;
   }.bind(func);
+  // i32
   func[11] = function () {
     var a = this[3](),
       b = [];
@@ -132,6 +145,7 @@ function ReaderProto(buf, forceBE, asBigInt, isSerial) {
       b.push(this[3]());
     return b
   }.bind(func);
+  // i64
   func[12] = function () {
     var a = this[3](),
       b = [];
@@ -163,7 +177,7 @@ function ReaderProto(buf, forceBE, asBigInt, isSerial) {
   }
 }
 
-function WriterProto(obj, littleEndian, allowBigInt) {
+function WriterProto(obj, littleEndian, allowBigInt, noCheck) {
   function g(a, b, c) {
     if (offset + b > abuf.byteLength) {
       var t1 = new ArrayBuffer(offset + b), t2 = new DataView(t1), t3 = new Uint8Array(t1);
@@ -173,7 +187,7 @@ function WriterProto(obj, littleEndian, allowBigInt) {
     dtv["set" + a](offset, (offset += b, c), isBedrock);
   }
 
-  var c = detectCircularReferences(obj, allowBigInt)
+  var c = noCheck ? c : detectCircularReferences(obj, allowBigInt)
     , isBedrock = !!littleEndian
     , func = {}
     , abuf = new ArrayBuffer(1)
@@ -182,11 +196,15 @@ function WriterProto(obj, littleEndian, allowBigInt) {
     , offset = 0;
 
   func["Uint16"] = g.bind(func, "Uint16", 2);
+  func["BigInt64"] = g.bind(func, "BigInt64", 8);
   func[1] = g.bind(func, "Int8", 1);
   func[2] = g.bind(func, "Int16", 2);
   func[3] = g.bind(func, "Int32", 4);
   func[4] = function (o) {
-    isBedrock ? (func[3](0 | o.low || 0), func[3](0 | o.high || 0)) : (func[3](0 | o.high || 0), func[3](0 | o.low || 0));
+    if (typeof o == 'bigint')
+      func["BigInt64"](o);
+    else
+      isBedrock ? (func[3](0 | o.low || 0), func[3](0 | o.high || 0)) : (func[3](0 | o.high || 0), func[3](0 | o.low || 0));
   }.bind(func);
   func[5] = g.bind(func, "Float32", 4);
   func[6] = g.bind(func, "Float64", 8);
@@ -355,10 +373,11 @@ class NBT {
    * @param {*} obj - Input object
    * @param {Boolean} littleEndian - Write as little endian if true
    * @param {Boolean} allowBigInt - Allow BigInt in i64 input
+   * @param {Boolean} noCheck - Disable circular reference detect for faster operation
    * @returns {ArrayBuffer}
    */
-  static Writer(obj, littleEndian, allowBigInt) {
-    return WriterProto(obj, littleEndian, allowBigInt)
+  static Writer(obj, littleEndian, allowBigInt, noCheck) {
+    return WriterProto(obj, littleEndian, allowBigInt, noCheck)
   }
 
   /**
