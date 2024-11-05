@@ -248,7 +248,7 @@ console.log(empty.foo);
 
 Returns a boolean value that indicates whether a value is a object created by NBT.create() or NBT.createProxy().
 
-See [NBT.create()](#NBT.create) and [NBT.createProxy()](#NBT.createProxy).
+See [NBT.create()](#NBT.create).
 
 <a name="NBT.keys"></a>
 
