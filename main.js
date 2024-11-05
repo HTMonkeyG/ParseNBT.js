@@ -236,12 +236,12 @@ function ReaderProto(buf, option, isSerial) {
 
   // Compound tag
   func[10] = function () {
-    var b = NBT.create(option.asProxy), c, d;
+    var b = NBT.create(option.asProxy), c, d, e = b[PROXIED_NBT] || b;
     while ((c = r[offset]) > 0x00)
       if (this[c]) {
         offset++;
         d = this[8]();
-        b[TYPER[c] + ">" + d] = this[c]();
+        e[TYPER[c] + ">" + d] = this[c]();
       } else
         throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
     return offset++, b;
@@ -276,11 +276,11 @@ function ReaderProto(buf, option, isSerial) {
   }.bind(func);
 
   func["root"] = function () {
-    var b = NBT.create(option.asProxy), c = r[offset], d;
+    var b = NBT.create(option.asProxy), c = r[offset], d, e = b[PROXIED_NBT] || b;;
     if (this[c]) {
       offset++;
       d = this[8]();
-      b[TYPER[c] + ">" + d] = this[c]();
+      e[TYPER[c] + ">" + d] = this[c]();
     } else
       throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
     return b
@@ -304,13 +304,31 @@ function ReaderProto(buf, option, isSerial) {
 }
 
 function WriterProto(obj, option) {
+  // Write a single value
   function g(a, b, c) {
     if (offset + b > abuf.byteLength) {
-      var t1 = new ArrayBuffer(offset + b), t2 = new DataView(t1), t3 = new Uint8Array(t1);
+      var l = abuf.byteLength;
+      while (l < offset + b)
+        l *= 2;
+      var t1 = new ArrayBuffer(l), t2 = new DataView(t1), t3 = new Uint8Array(t1);
       t3.set(port);
       abuf = t1, dtv = t2, port = t3;
     }
     dtv["set" + a](offset, (offset += b, c), isBedrock);
+  }
+
+  // Write a typed array
+  function h(a) {
+    if (offset + a.byteLength > abuf.byteLength) {
+      var l = abuf.byteLength;
+      while (l < offset + a.byteLength)
+        l *= 2;
+      var t1 = new ArrayBuffer(l), t2 = new DataView(t1), t3 = new Uint8Array(t1);
+      t3.set(port);
+      abuf = t1, dtv = t2, port = t3;
+    }
+    port.set(new Uint8Array(a.buffer), offset);
+    offset += a.byteLength;
   }
 
   option = typeof option == "object" ? option : {};
@@ -340,16 +358,18 @@ function WriterProto(obj, option) {
   // Array of 8 bit signed integer
   func[7] = function (o) {
     this[3](o.length);
-    for (var e of o)
-      this[1](e)
+    if (getTypeOfArray(o))
+      h(o);
+    else
+      for (var e of o)
+        this[1](e)
   }.bind(func);
 
   // String tag
   func[8] = function (s) {
     var a = new TextEncoder().encode(s);
     this["Uint16"](a.length);
-    for (var e of a)
-      this[1](e)
+    h(a);
   }.bind(func);
 
   // List tag
@@ -430,7 +450,7 @@ function WriterProto(obj, option) {
   }.bind(func);
 
   func["root"](c);
-  return abuf
+  return abuf.slice(0, offset)
 }
 
 class NBT {
