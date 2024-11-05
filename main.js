@@ -310,7 +310,9 @@ function WriterProto(obj, option) {
       var l = abuf.byteLength;
       while (l < offset + b)
         l *= 2;
-      var t1 = new ArrayBuffer(l), t2 = new DataView(t1), t3 = new Uint8Array(t1);
+      var t1 = new ArrayBuffer(l)
+        , t2 = new DataView(t1)
+        , t3 = new Uint8Array(t1);
       t3.set(port);
       abuf = t1, dtv = t2, port = t3;
     }
@@ -319,16 +321,26 @@ function WriterProto(obj, option) {
 
   // Write a typed array
   function h(a) {
+    var t = getTypeOfArray(a);
+    if (!t)
+      return;
+
     if (offset + a.byteLength > abuf.byteLength) {
       var l = abuf.byteLength;
       while (l < offset + a.byteLength)
         l *= 2;
-      var t1 = new ArrayBuffer(l), t2 = new DataView(t1), t3 = new Uint8Array(t1);
+      var t1 = new ArrayBuffer(l)
+        , t2 = new DataView(t1)
+        , t3 = new Uint8Array(t1);
       t3.set(port);
       abuf = t1, dtv = t2, port = t3;
     }
-    port.set(new Uint8Array(a.buffer), offset);
-    offset += a.byteLength;
+
+    if (t == 1)
+      port.set(a, offset), offset += a.byteLength;
+    else
+      for (var i = 0; i < a.length; i++)
+        func[t](a[i]);
   }
 
   option = typeof option == "object" ? option : {};
@@ -358,7 +370,7 @@ function WriterProto(obj, option) {
   // Array of 8 bit signed integer
   func[7] = function (o) {
     this[3](o.length);
-    if (getTypeOfArray(o))
+    if (getTypeOfArray(o) == 1)
       h(o);
     else
       for (var e of o)
