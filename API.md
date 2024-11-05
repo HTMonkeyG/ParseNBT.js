@@ -1,5 +1,48 @@
-# API Document
-## NBT object format
+# ParseNBT.js v3.0.0 documentation
+
+<a name="NBT"></a>
+
+- Table of Contents
+  * [ParseNBT.js object format](#NBT_Format)
+  * [Class: NBT](#NBT)
+    * [new NBT(buf[, option])](#new_NBT_new)
+    * _instance_
+      * [[Symbol.iterator]()](#NBT+iterator) ⇒ [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+      * [.getBuffer()](#NBT+getBuffer) ⇒ [``<ArrayBuffer>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer)
+      * [.getOffset()](#NBT+getOffset) ⇒ [``<Number>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
+      * [.canRead()](#NBT+canRead) ⇒ [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
+      * [.read()](#NBT+read) ⇒ [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) \| [``<null>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#null_type)
+    * _static_
+      * [.PROXIED_NBT](#NBT.PROXIED_NBT) ⇒ [``<Symbol>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol)
+      * [.create(isProxy)](#NBT.create) ⇒ [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) | [``<Proxy>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy)
+      * [.isNBT()](#NBT.isNBT) ⇒ [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
+      * [.keys(obj)](#NBT.keys) ⇒ [``<String[]>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
+      * [.equal(a, b)](#NBT.equal) ⇒ [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
+      * [.Reader(buf[, option])](#NBT.Reader) ⇒ [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) | [``<Proxy>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy)
+      * [.ReadSerial(buf[, option])](#NBT.ReadSerial) ⇒ [``<Object[]>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) | [``<Proxy[]>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy)
+      * [.Writer(obj[, option])](#NBT.Writer) ⇒ [``<ArrayBuffer>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer)
+
+<a name="NBT_Format"></a>
+
+## ParseNBT.js object format
+ParseNBT.js' output uses a special data structure for keys of the object.
+
+For example:
+```json
+{
+  "comp>": { 
+    "i32>count": 100,
+    "list>pos": [ "i32", 0, 0, 0 ],
+    "i64>ticks": { "low": 114514, "high": 1919810 }
+  }
+}
+```
+
+In the object, keys are separated into two parts with character ``>``.
+
+In the left-hand-side is the tag type, and the right-hand-side is the tag name. Tag name can be an empty string like above.
+
+The comparison table between the type string and the actual type is as follows:
 
 | Tag ID | Tag Type | Tag Type String |
 |  ----  | ---- | ---- |
@@ -17,142 +60,282 @@
 | 11 | TAG_Int_Array | a32 |
 | 12 | TAG_Long_Array | a64 |
 
-&emsp;Especially, the type of elements in TAG_List is the first element of the list array.
+For TAG_Long, it'll be formatted into an object  has two values named ```low``` and ```high```, 
+which produces the high 32 bits and the low 32 bits separately. 
 
-&emsp;For TAG_Long, it'll be formatted into an object which has two values named ```low``` and ```high```, 
-which produces the high 32 bits and the low 32 bits separately. BigInt also can be used in Tag_Long input when allowBigint is true.
+BigInt also can be used in Tag_Long input when allowBigint is true.
 
-&emsp;Example:
+<a name="new_NBT_new"></a>
 
+## new NBT(buf, option)
+
+* ``buf`` [``<ArrayBuffer>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer) Input buffer
+* ``option`` ``Object`` Options
+  * ``littleEndian`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read as little endian if true
+  * ``asBigInt`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read i64 as BigInt if true
+  * ``asTypedArray`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read array and list as TypedArray if true
+  * ``withoutNBTList`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read list of objects as Array with extra type property if true
+  * ``Proxy`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Create proxied NBT object.
+* Returns: [``<NBT>``](#NBT)
+
+Creates a reader.
+
+The reader will treat the input as a concatenated root label sequence, which means there are multiple independent NBTs connected together.
+
+Everytime [``<NBT.read()>``](#NBT+read) is called, the reader will read a single NBT, until the end of file or no valid NBT root tag.
+
+Example:
 ```js
-{
-  "comp>": {
-    "i32>format_version": 1,
-    "list>size": [ "i32", 1, 1, 1 ],
-    "comp>structure": {
-      "list>block_indices": ["i32", 0],
-      "list>entities": ["comp"],
-      "comp>palette": {}
-    },
-    "list>structure_world_origin": [ "i32", -18, -60, -61 ]
-  }
+const NBT = require("parsenbt-js")
+    , fs = require("fs");
+
+function toArrayBuffer(buf) {
+  var ab = new ArrayBuffer(buf.length)
+    , view = new Uint8Array(ab);
+  view.set(buf)
+  return ab;
 }
+
+var reader = new NBT(
+  toArrayBuffer(fs.readFileSync("./test.mcstructure")),
+  {
+    littleEndian: true
+  }
+);
+
+console.log(reader.read());
 ```
 
-## Static methods
+<a name="NBT+iterator"></a>
+
+## nbt[Symbol.iterator]
+
+* Returns: [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+
+Returns an iterator for NBT root tag sequence included in the input.
+
+<a name="NBT+getBuffer"></a>
+
+## nbt.getBuffer()
+
+* Returns: [``<ArrayBuffer>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer)
+
+Get input buffer.
+
+<a name="NBT+getOffset"></a>
+
+## nbt.getOffset()
+
+* Returns: [``<Number>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
+
+Get offset.
+
+<a name="NBT+canRead"></a>
+
+## nbt.canRead()
+
+* Returns: [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
+
+Detect whether reached the end.
+
+<a name="NBT+read"></a>
+
+## nbt.read()
+
+* Returns: [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) \| [``<null>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#null_type)
+
+Returns null when read to the end.
+
+See [new NBT(buf, option)](#new_NBT_new).
+
+<a name="NBT.PROXIED_NBT"></a>
+
+## NBT.PROXIED_NBT
+
+A symbol to get the original object of a proxied NBT object.
+  
+Only for debug use. Do not directly modify the original object.
+
+Example:
 ```js
-/**
- * Read NBT data in buffer.
- * @param {ArrayBuffer} buf - Input buffer
- * @param {Boolean} littleEndian - Read as little endian if true
- * @param {Boolean} asBigInt - Read i64 as BigInt if true
- * @returns {*}
- */
-NBT.Reader(buf: ArrayBuffer, littleEndian: Boolean, asBigInt: Boolean): any
+const NBT = require("parsenbt-js");
 
-/**
- * Serialize NBT object.
- * @param {*} obj - Input object
- * @param {Boolean} littleEndian - Write as little endian if true
- * @param {Boolean} allowBigInt - Allow BigInt in i64 input
- * @returns {ArrayBuffer}
- */
-NBT.Writer(obj: any, littleEndian: Boolean, allowBigInt: Boolean): ArrayBuffer
+var empty = NBT.createProxy();
 
-/**
- * Read concatenated root label sequence.
- * @param {ArrayBuffer} buf - Input buffer
- * @param {Boolean} littleEndian - Read as little endian if true
- * @param {Boolean} asBigInt - Read i64 as BigInt if true
- * @returns {Array} Array of NBT root tags
- */
-NBT.ReadSerial(buf: ArrayBuffer, littleEndian: Boolean, asBigInt: Boolean): any[]
+empty["str>foo"] = "";
+empty.foo = "bar_";
 
-/**
- * Create a new NBT object
- * @returns 
- */
-NBT.create()
-
-/**
- * Get attribute in NBT object.
- * 
- * When type is not a string, it will return the first value with given key,
- * no matter its type.
- * @param {*} obj - NBT object
- * @param {String|undefined} type - Value type or "[type]>[key]" formatted key
- * @param {String|undefined} key - Key
- * @returns
- */
-NBT.get(obj: any, type: String, key: String|undefined): any
-
-/**
- * Set attribute in NBT object with validation.
- * 
- * When type is not a string, it will set the first value matches given key,
- * with its existing type. If the key not exists, it wont be created.
- * @param {*} obj - Input buffer
- * @param {String} type - Value type
- * @param {String} key - Key
- * @param {*} value - Value
- * @returns
- */
-NBT.set(obj: any, type: String, key: String, value: any)
-
-/**
- * Returns the names with valid type-value pair of an NBT object.
- * @param {*} obj 
- * @returns {String[]}
- */
-NBT.keys(obj: any): String[]
+console.log(empty[NBT.PROXEID_NBT]);
+// {
+//   "str>foo": "bar_"
+// }
 ```
 
-## Instance methods
+<a name="NBT.create"></a>
+
+## NBT.create(isProxy)
+
+* ``isProxy`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
+
+* Returns: [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) | [``<Proxy>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy) Create a new empty NBT object with proxy if true.
+
+Create a new empty NBT object.
+
+The proxied NBT object can be accessed as normal JS Object with ``.`` operator. And when initial a property with existing key and different type, the type will be overrided to the new one.
+
+No proxy example:
 ```js
-/**
- * Creates a reader.
- * @param {ArrayBuffer} buf - Input buffer
- * @param {Boolean} isLE - Read as little endian if true
- * @param {Boolean} asBigInt - Convert i64 to BigInt
- */
-new NBT(buf: ArrayBuffer, isLE: Boolean, asBigInt: Boolean)
+const NBT = require("parsenbt-js");
 
-/**
- * Get input buffer.
- * @returns {ArrayBuffer}
- */
-NBT.prototype.getBuffer(): ArrayBuffer
+var empty = NBT.create();
 
-/**
- * Get offset.
- * @returns {Number}
- */
-NBT.prototype.getOffset(): Number
+console.log(NBT.isNBT(empty));
+// true
 
-/**
- * Get number endian.
- * 
- * True if little endian.
- * @returns {Boolean}
- */
-NBT.prototype.getEndian(): Boolean
-
-/**
- * Detect whether reached the end.
- * @returns {Boolean}
- */
-NBT.prototype.canRead(): Boolean
-
-/**
- * Read a single NBT root tag.
- * 
- * Returns null when read to the end.
- * @returns {*|null}
- */
-NBT.prototype.read(): * | null
-
-/**
- * Return an iterator of concatenated root label sequence.
- */
-NBT.prototype[Symbol.iterator]()
+console.log(NBT.isNBT({ "comp>":{ } }))
+// false
 ```
+
+With proxy example:
+
+```js
+const NBT = require("parsenbt-js");
+
+var empty = NBT.create(true);
+
+// Initialize type of the key
+empty["i8>foo"] = 0;
+
+console.log(empty.foo);
+// 0
+
+empty.foo = 90;
+
+console.log(empty.foo);
+// 90
+
+// Type override
+empty["str>foo"] = "bar";
+
+console.log(empty["i8>foo"]);
+// undefined
+```
+
+Besides, the input data will be converted to the type corresponding to the key value. Integers will be clamped to the valid range.
+
+```js
+const NBT = require("parsenbt-js");
+
+var empty = NBT.create(true);
+
+// Initialize type of the key
+empty["i8>foo"] = 0;
+
+console.log(empty.foo);
+// 0
+
+empty.foo = 114514;
+
+console.log(empty.foo);
+// 255
+```
+
+<a name="NBT.isNBT"></a>
+
+## NBT.isNBT()
+
+* Returns: [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
+
+Returns a boolean value that indicates whether a value is a object created by NBT.create() or NBT.createProxy().
+
+See [NBT.create()](#NBT.create) and [NBT.createProxy()](#NBT.createProxy).
+
+<a name="NBT.keys"></a>
+
+## NBT.keys(obj)
+Returns the names with valid type-value pair of an NBT object.
+
+* ``obj`` [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) Input object.
+* Returns: [``<String[]>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#String_type)
+
+<a name="NBT.equal"></a>
+
+## NBT.equal(a, b)
+
+* ``a`` [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) Input object.
+* ``b`` [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) Input object.
+* Returns: [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
+
+Recursively detect whether objects are compvarely equal.
+
+<a name="NBT.Reader"></a>
+
+## NBT.Reader(buf, option)
+
+* ``buf`` [``<ArrayBuffer>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer) Input buffer.
+* ``option`` ``Object`` Options.
+  * ``littleEndian`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read as little endian if true.
+  * ``asBigInt`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read i64 as BigInt if true.
+  * ``asTypedArray`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read array and list as TypedArray if true.
+  * ``withoutNBTList`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read list of objects as Array with extra type property if true.
+  * ``asProxy`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Create proxied NBT object. See [NBT.createProxy()](#NBT.createProxy)
+* Returns: [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+
+Read NBT data in buffer.
+
+If there are multiple root tags in the input, the reader will only deserialize the first one.
+
+In addition, if configured as littieEndian, the reader will try to check the [MCBE level.dat header](https://wiki.bedrock.dev/nbt/nbt-in-depth.html#bedrock-nbt-file-header).
+
+Example:
+```js
+const NBT = require("parsenbt-js")
+    , fs = require("fs");
+
+function toArrayBuffer(buf) {
+  var ab = new ArrayBuffer(buf.length)
+    , view = new Uint8Array(ab);
+  view.set(buf)
+  return ab;
+}
+
+var reader = NBT.Reader(
+  toArrayBuffer(fs.readFileSync("./level.dat")),
+  {
+    littleEndian: true
+  }
+);
+
+console.log(reader.read());
+```
+
+<a name="NBT.ReadSerial"></a>
+
+## NBT.ReadSerial(buf, option)
+
+* ``buf`` [``<ArrayBuffer>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer) Input buffer.
+* ``option`` ``Object`` Options.
+  * ``littleEndian`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read as little endian if true.
+  * ``asBigInt`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read i64 as BigInt if true.
+  * ``asTypedArray`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read array and list as TypedArray if true.
+  * ``withoutNBTList`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read list of objects as Array with extra type property if true.
+  * ``asProxy`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Create proxied NBT object.
+* Returns: [``<Object[]>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+
+Read concatenated root label sequence, and put all of the vaild NBT objects in an array.
+
+<a name="NBT.Writer"></a>
+
+## NBT.Writer(obj, option)
+
+* ``obj`` [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) Input object.
+* ``option`` [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object) Options.
+  * ``littleEndian`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Write as little endian if true.
+  * ``allowBigInt`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Allow BigInt in i64 input.
+  * ``noCheck`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Disable circular reference detect for faster operation.
+  * ``allowTypedArray`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Allow TypedArray in array type input.
+* Returns: [``<ArrayBuffer>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer)
+
+Serialize NBT object.
+
+For the type of the payload of a List Tag, the Writer will firstly check its ``.type`` property, and try to use it as payload type. Next, the prototype chain will be tested to determine whether the object is a typed array. Then, the Writer will check the first element of the list.
