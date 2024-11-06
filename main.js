@@ -345,7 +345,7 @@ function WriterProto(obj, option) {
 
   option = typeof option == "object" ? option : {};
 
-  var c = option.noCheck ? c : detectCircularReferences(obj, option.allowBigInt)
+  var c = option.noCheck ? obj : detectCircularReferences(obj, option.allowBigInt)
     , isBedrock = !!option.littleEndian
     , func = {}
     , abuf = new ArrayBuffer(1)
@@ -471,7 +471,7 @@ class NBT {
    * 
    * Only for debug use.
    */
-  get PROXIED_NBT() {
+  static get PROXIED_NBT() {
     return PROXIED_NBT
   }
 
