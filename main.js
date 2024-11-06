@@ -4,10 +4,8 @@ if (typeof DataView == "undefined")
   throw new Error("Missing DataView");
 if (typeof Uint8Array == "undefined")
   throw new Error("Missing Uint8Array");
-if (typeof WeakMap == "undefined")
-  throw new Error("Missing WeakMap");
 if (typeof WeakSet == "undefined")
-  throw new Error("Missing WeakMap");
+  throw new Error("Missing WeakSet");
 if (typeof TextEncoder == "undefined")
   throw new Error("Missing TextEncoder");
 if (typeof TextDecoder == "undefined")
@@ -16,7 +14,6 @@ if (typeof TextDecoder == "undefined")
 const NBTObjectProto = {}
   , TYPER = { 0: "null", 1: "i8", 2: "i16", 3: "i32", 4: "i64", 5: "f32", 6: "f64", 7: "a8", 8: "str", 9: "list", 10: "comp", 11: "a32", 12: "a64" }
   , TYPEW = { "null": 0, "i8": 1, "i16": 2, "i32": 3, "i64": 4, "f32": 5, "f64": 6, "a8": 7, "str": 8, "list": 9, "comp": 10, "a32": 11, "a64": 12 }
-  , MAX_FP32 = 340282346638528859811704183484516925440
   , PROXIED_NBT = Symbol("NBT_PROXIED");
 
 Object.freeze(NBTObjectProto);
@@ -29,28 +26,28 @@ if (typeof BigInt != "undefined") {
   shift = BigInt(32)
 }
 
-function detectCircularReferences(obj, allowBigInt) {
+function detectCircularReference(obj) {
   var cache = new WeakSet();
   function recurse(obj) {
-    var result = {};
-
-    for (var k of NBT.keys(obj)) {
+    for (var k of Object.getOwnPropertyNames(obj)) {
+      // Write values
+      var f = splitTK(k)
+        , g = TYPEW[f[0]];
+      if (!g)
+        continue;
       var value = obj[k];
-      if (typeof value == 'object' && value !== null && !ArrayBuffer.isView(value) && !Array.isArray(value)) {
+      if (typeof value == 'object' && value !== null && !ArrayBuffer.isView(value)) {
         if (cache.has(value))
           throw new Error("Cannot serialize circular reference to NBT.");
         cache.add(value);
-        result[k] = recurse(value);
-      } else if (typeof value == 'bigint' && allowBigInt)
-        result[k] = {
-          low: Number(value & lMask) | 0,
-          high: Number((value & hMask) >> shift) | 0
-        };
-      else
-        result[k] = value;
+        if (Array.isArray(value))
+          for (var v of value)
+            recurse(v);
+        else
+          recurse(value);
+      }
     }
-
-    return result
+    return obj
   }
 
   cache.add(obj);
@@ -89,22 +86,6 @@ function toTypedArray(t) {
   }[t];
 }
 
-function getTypeOfNumber(r) {
-  if (Number.isInteger(r) && Number.MIN_SAFE_INTEGER <= r && r <= Number.MAX_SAFE_INTEGER) {
-    if (-256 <= r && r <= 255)
-      return "i8";
-    else if (-65536 <= r && r <= 65535)
-      return "i16";
-    else if (-2147483648 <= r && r <= 2147483647)
-      return "i32";
-    else
-      return "i64"
-  } else if (-MAX_FP32 <= r && r <= MAX_FP32)
-    return "f32";
-  else
-    return "f64"
-}
-
 function typeCheck(v, t) {
   switch (t) {
     case "i8":
@@ -130,7 +111,7 @@ function typeCheck(v, t) {
     case "str":
       return typeof v == "undefined" || v === null ? "" : v + "";
     case "comp":
-      return typeof v == "object" ? v : NBT.createProxy();
+      return typeof v == "object" ? v : NBT.create(true);
     case "list": case "a8": case "a32": case "a64":
       return typeof v == "object" ? v : [];
   }
@@ -190,10 +171,10 @@ function ReaderProto(buf, option, isSerial) {
     var a = this[3]()
       , b = [];
 
-    if (option.asTypedArray)
-      for (b = new (toTypedArray(1))(a), i = 0; i < a; i++)
-        b[i] = this[1]();
-    else
+    if (option.asTypedArray) {
+      b = new (toTypedArray(1))(a);
+      b.set(r.slice(offset, offset += a))
+    } else
       for (; a > 0; a--)
         b.push(this[1]());
     return b
@@ -208,25 +189,26 @@ function ReaderProto(buf, option, isSerial) {
 
   // List tag
   func[9] = function () {
-    var b = [], c, d, i;
-    // Type of elements in the list
-    d = this[1]();
-    // Length of the list
-    c = this[3]();
+    var b = []
+      // Type of elements in the list
+      , c = this[1]()
+      // Length of the list
+      , d = this[3]()
+      , i;
 
-    if (option.asTypedArray && toTypedArray(d)) {
-      for (b = new (toTypedArray(d))(c), i = 0; i < c; i++)
-        b[i] = this[d]();
+    if (option.asTypedArray && toTypedArray(c)) {
+      for (b = new (toTypedArray(c))(d), i = 0; i < d; i++)
+        b[i] = this[c]();
       return b
     } else if (!option.withoutNBTList)
-      b.push(TYPER[d]);
+      b.push(TYPER[c]);
     else
-      b.type = TYPER[d];
+      b.type = TYPER[c];
 
-    if (this[d])
-      for (; c > 0; c--)
-        b.push(this[d]());
-    else if (d == 0)
+    if (this[c])
+      for (; d > 0; d--)
+        b.push(this[c]());
+    else if (c == 0)
       // Null type list, always empty
       ;
     else
@@ -236,7 +218,10 @@ function ReaderProto(buf, option, isSerial) {
 
   // Compound tag
   func[10] = function () {
-    var b = NBT.create(option.asProxy), c, d, e = b[PROXIED_NBT] || b;
+    var b = NBT.create(option.asProxy)
+      , c, d
+      , e = b[PROXIED_NBT] || b;
+
     while ((c = r[offset]) > 0x00)
       if (this[c]) {
         offset++;
@@ -264,7 +249,8 @@ function ReaderProto(buf, option, isSerial) {
   // Array of 64 bit signed integer
   func[12] = function () {
     var a = this[3]()
-      , b = [], i;
+      , b = []
+      , i;
 
     if (option.asTypedArray && option.asBigInt)
       for (b = new toTypedArray(4)(a), i = 0; i < a; i++)
@@ -276,7 +262,11 @@ function ReaderProto(buf, option, isSerial) {
   }.bind(func);
 
   func["root"] = function () {
-    var b = NBT.create(option.asProxy), c = r[offset], d, e = b[PROXIED_NBT] || b;;
+    var b = NBT.create(option.asProxy)
+      , c = r[offset]
+      , d
+      , e = b[PROXIED_NBT] || b;
+
     if (this[c]) {
       offset++;
       d = this[8]();
@@ -345,10 +335,10 @@ function WriterProto(obj, option) {
 
   option = typeof option == "object" ? option : {};
 
-  var c = option.noCheck ? obj : detectCircularReferences(obj, option.allowBigInt)
+  var c = option.noCheck ? obj : detectCircularReference(obj, option.allowBigInt)
     , isBedrock = !!option.littleEndian
     , func = {}
-    , abuf = new ArrayBuffer(1)
+    , abuf = new ArrayBuffer(128)
     , dtv = new DataView(abuf)
     , port = new Uint8Array(abuf)
     , offset = 0;
@@ -361,6 +351,8 @@ function WriterProto(obj, option) {
   func[4] = function (o) {
     if (typeof o == 'bigint')
       func["BigInt64"](o);
+    else if (typeof o != "object")
+      func[3](0), func[3](0)
     else
       isBedrock ? (func[3](0 | o.low || 0), func[3](0 | o.high || 0)) : (func[3](0 | o.high || 0), func[3](0 | o.low || 0));
   }.bind(func);
@@ -402,32 +394,36 @@ function WriterProto(obj, option) {
       n = l[0];
     }
 
-    // Write type of the list
-    // Write as empty list when m.length is falsy
-    m.length ? this[1](t) : this[1](0);
-    if (t) {
+    // Write as empty list when m.length is falsy or null type
+    if (t === 0 || !m.length) {
+      this[1](0);
+      this[3](0);
+    } else if (t) {
+      // Write type of the list
+      this[1](t);
       // Write length
       this[3](m.length);
       for (var i = 0; i < m.length; i++)
         this[t](m[i])
-    } else if (t === 0)
-      // Null type, only empty lists
-      this[3](0);
-    else
-      throw new Error("Invalid type name: " + n);
+    } else
+      throw new Error("Invalid type: " + n);
   }.bind(func);
 
   // Compound tag
   func[10] = function (o, root) {
     if (o[PROXIED_NBT])
       o = o[PROXIED_NBT];
-    // Ignore non-NBT keys
-    for (var k of NBT.keys(o)) {
+
+    // Optimize performance
+    // Reduce traversal times 
+    for (var k of Object.getOwnPropertyNames(o)) {
       // Write values
       var f = splitTK(k)
         , g = TYPEW[f[0]];
+      // Ignore non-NBT keys
       if (!g)
-        throw new Error("Invalid type name: " + f[0]);
+        continue;
+
       this[1](g);
       this[8](f[1]);
       this[g](o[k]);
@@ -458,6 +454,7 @@ function WriterProto(obj, option) {
     var keys = NBT.keys(o);
     if (keys.length != 1 || keys[0] != "comp>")
       o = { "comp>": o };
+
     this[10](o, true)
   }.bind(func);
 
