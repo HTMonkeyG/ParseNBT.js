@@ -1,5 +1,5 @@
 # ParseNBT.js
-&emsp;ParseNBT.js is a JavaScript-based minecraft NBT parser and serializer.
+ParseNBT.js is a JavaScript-based minecraft NBT parser and serializer.
 ## Install
 ```shell
 npm i parsenbt-js
@@ -32,11 +32,12 @@ console.log(NBT.Writer(nbtData, !0));
 ```
 
 ## API
-See [API.md](https://github.com/HTMonkeyG/ParseNBT.js/blob/main/API.md)
+See [API.md](https://github.com/HTMonkeyG/ParseNBT.js/API.md)
 
 ## Data Structure
-&emsp;ParseNBT.js' output uses a special data structure for keys of the object.  
-&emsp;For example:
+ParseNBT.js' output uses a special data structure for keys of the object.
+
+For example:
 ```json
 {
   "comp>": { 
@@ -46,10 +47,11 @@ See [API.md](https://github.com/HTMonkeyG/ParseNBT.js/blob/main/API.md)
   }
 }
 ```
-&emsp;In the object, keys are separated into two parts with character ```>```.
-&emsp;In the left-hand-side is the tag type, and the right-hand-side is the tag name.
-Tag name can be an empty string like above.  
-&emsp;The comparison table between the type string and the actual type is as follows:
+In the object, keys are separated into two parts with character ```>```.
+
+In the left-hand-side is the tag type, and the right-hand-side is the tag name. Tag name can be an empty string like above.
+
+The comparison table between the type string and the actual type is as follows:
 | Tag ID | Tag Type | Tag Type String |
 |  ----  | ---- | ---- |
 | 0  | TAG_End | null |
@@ -66,6 +68,6 @@ Tag name can be an empty string like above.
 | 11 | TAG_Int_Array | a32 |
 | 12 | TAG_Long_Array | a64 |
 
-&emsp;Especially, the type of elements in TAG_List is the first element of the list array.
+Especially, the type of elements in TAG_List is the first element of the list array.
 And for TAG_Long, it'll be formatted into an object which has two values named ```low``` and ```high```, 
 that produces the high 32 bits and the low 32 bits separately.

@@ -125,6 +125,26 @@ function test10() {
 }
 test10();
 
+function test11() {
+  console.log("11  Circular");
+
+  var r = NBT.create(true)
+    , s = NBT.create(true)
+    , t = NBT.create(true)
+    , u;
+
+  r["comp>0"] = s;
+  s["comp>1"] = t;
+  t["comp>2"] = s;
+
+  try {
+    u = NBT.Writer(r, { littleEndian: true });
+  } catch (e) {
+    console.log(e.message == "Cannot serialize circular reference to NBT.")
+  }
+}
+test11();
+
 function issue1() {
   console.log("Issue #1");
   console.log(NBT.Writer({ "comp>": { "comp>": {} } }, { littleEndian: true }).byteLength == 8);

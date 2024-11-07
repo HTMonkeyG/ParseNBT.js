@@ -18,17 +18,10 @@ const NBTObjectProto = {}
 
 Object.freeze(NBTObjectProto);
 
-var lMask, hMask, shift;
-
-if (typeof BigInt != "undefined") {
-  lMask = BigInt(0xFFFFFFFF);
-  hMask = lMask << BigInt(32);
-  shift = BigInt(32)
-}
-
 function detectCircularReference(obj) {
   var cache = new WeakSet();
   function recurse(obj) {
+    obj = obj[PROXIED_NBT] || obj;
     for (var k of Object.getOwnPropertyNames(obj)) {
       // Write values
       var f = splitTK(k)
@@ -41,8 +34,8 @@ function detectCircularReference(obj) {
           throw new Error("Cannot serialize circular reference to NBT.");
         cache.add(value);
         if (Array.isArray(value))
-          for (var v of value)
-            recurse(v);
+          for (var im = value.length, i = 0, v = value[0]; i < im; i++, v = value[i])
+            typeof v == "object" && v !== null && recurse(value);
         else
           recurse(value);
       }
@@ -120,7 +113,7 @@ function typeCheck(v, t) {
 function splitTK(s) {
   var i = s.indexOf(">");
   if (i == -1)
-    return null;
+    return [null, s];
   return [
     s.slice(0, i),
     s.slice(i + 1)
@@ -329,13 +322,13 @@ function WriterProto(obj, option) {
     if (t == 1)
       port.set(a, offset), offset += a.byteLength;
     else
-      for (var i = 0; i < a.length; i++)
+      for (var i = 0, im = a.length; i < im; i++)
         func[t](a[i]);
   }
 
   option = typeof option == "object" ? option : {};
 
-  var c = option.noCheck ? obj : detectCircularReference(obj, option.allowBigInt)
+  var c = option.noCheck ? obj : detectCircularReference(obj)
     , isBedrock = !!option.littleEndian
     , func = {}
     , abuf = new ArrayBuffer(128)
@@ -365,8 +358,8 @@ function WriterProto(obj, option) {
     if (getTypeOfArray(o) == 1)
       h(o);
     else
-      for (var e of o)
-        this[1](e)
+      for (var im = o.length, i = 0; i < im; i++)
+        this[1](o[i])
   }.bind(func);
 
   // String tag
@@ -403,7 +396,7 @@ function WriterProto(obj, option) {
       this[1](t);
       // Write length
       this[3](m.length);
-      for (var i = 0; i < m.length; i++)
+      for (var i = 0, im = m.length; i < im; i++)
         this[t](m[i])
     } else
       throw new Error("Invalid type: " + n);
@@ -411,8 +404,7 @@ function WriterProto(obj, option) {
 
   // Compound tag
   func[10] = function (o, root) {
-    if (o[PROXIED_NBT])
-      o = o[PROXIED_NBT];
+    o = o[PROXIED_NBT] || o;
 
     // Optimize performance
     // Reduce traversal times 
@@ -435,21 +427,20 @@ function WriterProto(obj, option) {
   func[11] = function (o) {
     // Write length
     this[3](o.length);
-    for (var e of o)
+    for (var im = o.length, i = 0; i < im; i++)
       // Write elements
-      this[3](e)
+      this[3](o[i])
   }.bind(func);
 
   // Array of 64 bit signed integer
   func[12] = function (o) {
     this[3](o.length);
-    for (var e of o)
-      this[4](e)
+    for (var im = o.length, i = 0; i < im; i++)
+      this[4](o[i])
   }.bind(func);
 
   func["root"] = function (o) {
-    if (o[PROXIED_NBT])
-      o = o[PROXIED_NBT];
+    o = o[PROXIED_NBT] || o;
 
     var keys = NBT.keys(o);
     if (keys.length != 1 || keys[0] != "comp>")
@@ -700,7 +691,6 @@ class NBT {
    * @param {Object} obj - Input object
    * @param {Object} option - Options
    * @param {Boolean} option.littleEndian - Write as little endian if true
-   * @param {Boolean} option.allowBigInt - Allow BigInt in i64 input
    * @param {Boolean} option.noCheck - Disable circular reference detect for faster operation
    * @param {Boolean} option.allowTypedArray - Allow TypedArray in array type input
    * @returns {ArrayBuffer}
