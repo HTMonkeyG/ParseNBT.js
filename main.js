@@ -377,7 +377,7 @@ function WriterProto(obj, option) {
     if (l.type && typeof TYPEW[l.type] != 'undefined')
       // Specified type
       t = TYPEW[l.type], n = l.type;
-    else if (ArrayBuffer.isView(l) && option.allowTypedArray)
+    else if (ArrayBuffer.isView(l))
       // Typed array
       t = getTypeOfArray(l), n = "Invalid TypedArray";
     else {
@@ -465,7 +465,7 @@ class NBT {
 
   /**
    * Create a new empty NBT object.
-   * @param {Boolean} isProxy - Create a new empty NBT object with proxy if true.
+   * @param {Boolean} [isProxy] - Create a new empty NBT object with proxy if true.
    * @returns {Object}
    */
   static create(isProxy) {
@@ -582,11 +582,50 @@ class NBT {
     if (obj[PROXIED_NBT])
       obj = obj[PROXIED_NBT];
     for (var k of Object.getOwnPropertyNames(obj)) {
-      var l = k.split(">");
-      if (Object.keys(TYPEW).indexOf(l[0]) != -1)
+      var l = splitTK(k);
+      if (TYPEW[l[0]])
         result.push(k)
     }
     return result
+  }
+
+  /**
+   * Copy the values of all of the NBT properties from one or more source objects 
+   * to a target object.
+   * 
+   * Returns the target object.
+   * @param {Object} target - The target object to copy to.
+   * @param {Object} source - The source object from which to copy properties.
+   */
+  static assign(target, ...source) {
+    var t = target[PROXIED_NBT] || target
+      , j = {};
+
+    if (!source.length || typeof target != "object" || target === null)
+      return target;
+
+    for (var k of Object.getOwnPropertyNames(t)) {
+      var l = splitTK(k);
+      if (TYPEW[l[0]])
+        j[l[1]] = k
+    }
+
+    for (var s of source) {
+      if (typeof s != "object" || s === null)
+        continue;
+      s = s[PROXIED_NBT] || s;
+      for (var k of Object.getOwnPropertyNames(s)) {
+        var l = splitTK(k);
+        if (TYPEW[l[0]]) {
+          // Type override
+          if (j[l[1]])
+            delete t[j[l[1]]];
+          t[k] = s[k]
+        }
+      }
+    }
+
+    return target
   }
 
   /**
@@ -658,12 +697,12 @@ class NBT {
 
   /**
    * Read NBT data in buffer.
-   * @param {ArrayBuffer} buf - Input buffer
-   * @param {Object} option - Options
-   * @param {Boolean} option.littleEndian - Read as little endian if true
-   * @param {Boolean} option.asBigInt - Read i64 as BigInt if true
-   * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true
-   * @param {Boolean} option.withoutNBTList - Read list of objects as Array with extra type property if true
+   * @param {ArrayBuffer} buf - Input buffer.
+   * @param {Object} option - Options.
+   * @param {Boolean} option.littleEndian - Read as little endian if true.
+   * @param {Boolean} option.asBigInt - Read i64 as BigInt if true.
+   * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true.
+   * @param {Boolean} option.withoutNBTList - Read list of objects as Array with extra type property if true.
    * @param {Boolean} option.asProxy - Create proxied NBT object.
    * @returns {Object}
    */
@@ -673,14 +712,14 @@ class NBT {
 
   /**
    * Read concatenated root label sequence.
-   * @param {ArrayBuffer} buf - Input buffer
-   * @param {Object} option - Options
-   * @param {Boolean} option.littleEndian - Read as little endian if true
-   * @param {Boolean} option.asBigInt - Read i64 as BigInt if true
-   * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true
-   * @param {Boolean} option.withoutNBTList - Read list of objects as Array with extra type property if true
-   * @param {Boolean} option.asProxy - Create proxied NBT object
-   * @returns {Array} Array of NBT root tags
+   * @param {ArrayBuffer} buf - Input buffer.
+   * @param {Object} option - Options.
+   * @param {Boolean} option.littleEndian - Read as little endian if true.
+   * @param {Boolean} option.asBigInt - Read i64 as BigInt if true.
+   * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true.
+   * @param {Boolean} option.withoutNBTList - Read list of objects as Array with extra type property if true.
+   * @param {Boolean} option.asProxy - Create proxied NBT object.
+   * @returns {Array} Array of NBT root tags.
    */
   static ReadSerial(buf, option) {
     return ReaderProto(buf, option, !0)
@@ -688,11 +727,10 @@ class NBT {
 
   /**
    * Serialize NBT object.
-   * @param {Object} obj - Input object
-   * @param {Object} option - Options
-   * @param {Boolean} option.littleEndian - Write as little endian if true
-   * @param {Boolean} option.noCheck - Disable circular reference detect for faster operation
-   * @param {Boolean} option.allowTypedArray - Allow TypedArray in array type input
+   * @param {Object} obj - Input object.
+   * @param {Object} option - Options.
+   * @param {Boolean} option.littleEndian - Write as little endian if true.
+   * @param {Boolean} option.noCheck - Disable circular reference detect for faster operation.
    * @returns {ArrayBuffer}
    */
   static Writer(obj, option) {
@@ -701,12 +739,12 @@ class NBT {
 
   /**
    * Creates a reader.
-   * @param {ArrayBuffer} buf - Input buffer
-   * @param {Object} option - Options
-   * @param {Boolean} option.littleEndian - Read as little endian if true
-   * @param {Boolean} option.asBigInt - Read i64 as BigInt if true
-   * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true
-   * @param {Boolean} option.withoutNBTList - Read list of objects as Array with extra type property if true
+   * @param {ArrayBuffer} buf - Input buffer.
+   * @param {Object} option - Options.
+   * @param {Boolean} option.littleEndian - Read as little endian if true.
+   * @param {Boolean} option.asBigInt - Read i64 as BigInt if true.
+   * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true.
+   * @param {Boolean} option.withoutNBTList - Read list of objects as Array with extra type property if true.
    * @param {Boolean} option.asProxy - Create proxied NBT object.
    * @returns {Object}
    */

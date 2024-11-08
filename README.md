@@ -5,6 +5,7 @@ ParseNBT.js is a JavaScript-based minecraft NBT parser and serializer.
 npm i parsenbt-js
 ```
 ## Usage
+
 **Reader**
 ```js
 const fs = require('fs'), NBT = require('parsenbt-js');
@@ -13,6 +14,7 @@ var binData = fs.readFileSync('./path/of/nbt.nbt');
 // The NBT.Reaer returns an object
 console.log(NBT.Reader(binData));
 ```
+
 **Writer**
 ```js
 const fs = require('fs'), NBT = require('parsenbt-js');
@@ -32,7 +34,7 @@ console.log(NBT.Writer(nbtData, !0));
 ```
 
 ## API
-See [API.md](https://github.com/HTMonkeyG/ParseNBT.js/API.md)
+See [API.md](https://github.com/HTMonkeyG/ParseNBT.js/blob/main/API.md)
 
 ## Data Structure
 ParseNBT.js' output uses a special data structure for keys of the object.

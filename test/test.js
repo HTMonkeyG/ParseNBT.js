@@ -145,6 +145,24 @@ function test11() {
 }
 test11();
 
+function test12() {
+  console.log("12  NBT.assign");
+
+  var r = NBT.create(true)
+    , s = NBT.create(true)
+    , t;
+
+  r["str>awa"] = "qwq";
+  r["i8>k"] = 42;
+
+  s["i16>awa"] = 1145;
+
+  t = NBT.assign(r, s);
+
+  console.log(t.awa == 1145 && t["str>awa"] == void 0)
+}
+test12();
+
 function issue1() {
   console.log("Issue #1");
   console.log(NBT.Writer({ "comp>": { "comp>": {} } }, { littleEndian: true }).byteLength == 8);
