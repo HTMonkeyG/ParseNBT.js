@@ -109,7 +109,7 @@ console.log(reader.read());
 
 <a name="NBT+iterator"></a>
 
-## nbt[Symbol.iterator]
+## nbt[Symbol.iterator]()
 
 * Returns: [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
 
