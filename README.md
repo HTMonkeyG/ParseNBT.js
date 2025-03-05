@@ -27,7 +27,7 @@ var nbtData = {
   }
 };
 
-// The NBT.Writer returns a buffer
+// The NBT.Writer returns an ArrayBuffer
 // The second param determined the byte order
 // little-endian if it's true
 console.log(NBT.Writer(nbtData, !0));
