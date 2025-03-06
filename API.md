@@ -7,7 +7,7 @@
   * [Class: NBT](#NBT)
     * [new NBT(buf[, option])](#new_NBT_new)
     * _instance_
-      * [nbt[Symbol.iterator]()](#NBT+iterator) ⇒ [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
+      * [nbt\[Symbol.iterator\]()](#NBT+iterator) ⇒ [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
       * [nbt.getBuffer()](#NBT+getBuffer) ⇒ [``<ArrayBuffer>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ArrayBuffer)
       * [nbt.getOffset()](#NBT+getOffset) ⇒ [``<Number>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#number_type)
       * [nbt.canRead()](#NBT+canRead) ⇒ [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type)
@@ -108,7 +108,7 @@ console.log(reader.read());
 
 <a name="NBT+iterator"></a>
 
-## nbt[Symbol.iterator]
+## nbt[Symbol.iterator]()
 
 * Returns: [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
 

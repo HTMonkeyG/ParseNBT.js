@@ -82,9 +82,9 @@ function toTypedArray(t) {
 function typeCheck(v, t) {
   switch (t) {
     case "i8":
-      return typeof v == "number" ? v < -256 ? -256 : v > 255 ? 255 : v : 0;
+      return typeof v == "number" ? v < -128 ? -128 : v > 127 ? 127 : v : 0;
     case "i16":
-      return typeof v == "number" ? v < -65536 ? -65536 : v > 65535 ? 65535 : v : 0;
+      return typeof v == "number" ? v < -32768 ? -32768 : v > 32767 ? 32767 : v : 0;
     case "i32":
       return typeof v == "number" ? v < -2147483648 ? -2147483648 : v > 2147483647 ? 2147483647 : v : 0;
     case "i64":
