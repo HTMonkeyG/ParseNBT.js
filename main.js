@@ -122,20 +122,20 @@ function splitTK(s) {
 
 function ReaderProto(buf, option, isSerial) {
   function g(b, c) {
-    return a["get" + b](offset, (offset += c, isBedrock))
+    return dtv["get" + b](offset, (offset += c, isBedrock))
   }
 
   option = typeof option == "object" ? option : {};
 
   var offset = 0
-    , a = new DataView(buf)
-    , r = new Uint8Array(buf)
+    , dtv = new DataView(buf)
+    , u8a = new Uint8Array(buf)
     , isBedrock = false
     , func = {};
 
   if (option.littleEndian) {
     // Detect MCBE NBT header
-    buf.length > 8 && a.getUint32(4, true) == r.byteLength - 8 && (offset = 8);
+    buf.length > 8 && dtv.getUint32(4, true) == u8a.byteLength - 8 && (offset = 8);
     isBedrock = true;
   }
 
@@ -152,7 +152,7 @@ function ReaderProto(buf, option, isSerial) {
   func[4] = option.asBigInt ? g.bind(func, "BigInt64", 8) : function () {
     var a = this[3]()
       , b = this[3]();
-    return isBedrock ? { high: b, low: a, } : { high: a, low: b }
+    return isBedrock ? { high: b, low: a } : { high: a, low: b }
   }.bind(func);
   // Single precision float
   func[5] = g.bind(func, "Float32", 4);
@@ -162,117 +162,107 @@ function ReaderProto(buf, option, isSerial) {
   // Array of 8 bit signed integer
   func[7] = function () {
     var a = this[3]()
-      , b = [];
+      , r, i;
 
     if (option.asTypedArray) {
-      b = new (toTypedArray(1))(a);
-      b.set(r.slice(offset, offset += a))
-    } else
-      for (; a > 0; a--)
-        b.push(this[1]());
-    return b
+      r = new (toTypedArray(1))(a);
+      r.set(u8a.slice(offset, offset += a))
+    } else {
+      r = new Array(a);
+      for (i = 0; i < a; i++)
+        r[i] = this[1]();
+    }
+
+    return r
   }.bind(func);
 
   // String
   func[8] = function () {
-    var l = this["Uint16"](), b;
-    b = new TextDecoder().decode(r.slice(offset, offset += l));
-    return b
+    var l = this["Uint16"]();
+    return new TextDecoder().decode(u8a.slice(offset, offset += l))
   }.bind(func);
 
   // List tag
   func[9] = function () {
-    var b = []
-      // Type of elements in the list
-      , c = this[1]()
-      // Length of the list
-      , d = this[3]()
-      , i;
+    var r, c, l, i;
 
-    if (option.asTypedArray && toTypedArray(c)) {
-      for (b = new (toTypedArray(c))(d), i = 0; i < d; i++)
-        b[i] = this[c]();
-      return b
-    } else if (!option.withoutNBTList)
-      b.push(TYPER[c]);
-    else
-      b.type = TYPER[c];
+    // Type of elements in the list
+    c = this[1]();
+    // Length of the list
+    l = this[3]();
+    r = (option.asTypedArray && toTypedArray(c)) ? new (toTypedArray(c))(l) : new Array(l);
 
-    if (this[c])
-      for (; d > 0; d--)
-        b.push(this[c]());
-    else if (c == 0)
+    if (this[c]) {
+      for (i = 0; i < l; i++)
+        r[i] = this[c]();
+      Array.isArray(r) && r.unshift(TYPER[c])
+    } else if (c == 0)
       // Null type list, always empty
       ;
     else
-      throw new Error(`Invalid tag ID at Byte${offset - 1} : ${r[offset - 1]}`);
-    return b;
+      throw new Error(`Invalid tag ID at Byte${offset - 1} : ${u8a[offset - 1]}`);
+    return r;
   }.bind(func);
 
   // Compound tag
   func[10] = function () {
-    var b = NBT.create(option.asProxy)
-      , c, d
-      , e = b[PROXIED_NBT] || b;
+    var r = NBT.create(option.asProxy)
+      , o = r[PROXIED_NBT] || r
+      , c, d;
 
-    while ((c = r[offset]) > 0x00)
+    while ((c = u8a[offset]) > 0x00)
       if (this[c]) {
         offset++;
         d = this[8]();
-        e[TYPER[c] + ">" + d] = this[c]();
+        o[TYPER[c] + ">" + d] = this[c]();
       } else
-        throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
-    return offset++, b;
+        throw new Error('Invalid tag ID at Byte' + offset + ' : ' + u8a[offset]);
+    return offset++, r;
   }.bind(func);
 
   // Array of 32 bit signed integer
   func[11] = function () {
-    var a = this[3]()
-      , b = [];
+    var l = this[3]()
+      , r = (option.asTypedArray && option.asBigInt) ? new Int32Array(l) : new Array(l)
+      , i;
 
-    if (option.asTypedArray)
-      for (b = (new toTypedArray(3))(a), i = 0; i < a; i++)
-        b[i] = this[3]();
-    else
-      for (; a > 0; a--)
-        b.push(this[3]());
-    return b
+    for (i = 0; i < l; i++)
+      r[i] = this[3]();
+
+    return r
   }.bind(func);
 
   // Array of 64 bit signed integer
   func[12] = function () {
-    var a = this[3]()
-      , b = []
+    var l = this[3]()
+      , r = (option.asTypedArray && option.asBigInt) ? new BigInt64Array(l) : new Array(l)
       , i;
 
-    if (option.asTypedArray && option.asBigInt)
-      for (b = new toTypedArray(4)(a), i = 0; i < a; i++)
-        b[i] = this[4]();
-    else
-      for (; a > 0; a--)
-        b.push(this[4]());
-    return b
+    for (i = 0; i < l; i++)
+      r[i] = this[4]();
+
+    return r
   }.bind(func);
 
   func["root"] = function () {
-    var b = NBT.create(option.asProxy)
-      , c = r[offset]
-      , d
-      , e = b[PROXIED_NBT] || b;
+    var r = NBT.create(option.asProxy)
+      , c = u8a[offset]
+      , o = r[PROXIED_NBT] || r
+      , d;
 
     if (this[c]) {
       offset++;
       d = this[8]();
-      e[TYPER[c] + ">" + d] = this[c]();
+      o[TYPER[c] + ">" + d] = this[c]();
     } else
-      throw new Error('Invalid tag ID at Byte' + offset + ' : ' + r[offset]);
-    return b
+      throw new Error('Invalid tag ID at Byte' + offset + ' : ' + u8a[offset]);
+    return r
   }.bind(func);
 
   var result = [];
   if (isSerial)
     while (1) {
-      if (func[r[offset]])
+      if (func[u8a[offset]])
         result.push(func["root"]());
       else if (offset < buf.byteLength)
         offset++;
@@ -702,7 +692,6 @@ class NBT {
    * @param {Boolean} option.littleEndian - Read as little endian if true.
    * @param {Boolean} option.asBigInt - Read i64 as BigInt if true.
    * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true.
-   * @param {Boolean} option.withoutNBTList - Read list of objects as Array with extra type property if true.
    * @param {Boolean} option.asProxy - Create proxied NBT object.
    * @returns {Object}
    */
@@ -717,7 +706,6 @@ class NBT {
    * @param {Boolean} option.littleEndian - Read as little endian if true.
    * @param {Boolean} option.asBigInt - Read i64 as BigInt if true.
    * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true.
-   * @param {Boolean} option.withoutNBTList - Read list of objects as Array with extra type property if true.
    * @param {Boolean} option.asProxy - Create proxied NBT object.
    * @returns {Array} Array of NBT root tags.
    */
@@ -744,14 +732,13 @@ class NBT {
    * @param {Boolean} option.littleEndian - Read as little endian if true.
    * @param {Boolean} option.asBigInt - Read i64 as BigInt if true.
    * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true.
-   * @param {Boolean} option.withoutNBTList - Read list of objects as Array with extra type property if true.
    * @param {Boolean} option.asProxy - Create proxied NBT object.
    * @returns {Object}
    */
   constructor(buf, option) {
     this.buf = buf;
     this.offset = 0;
-    this.option = option;
+    this.option = option || {};
   }
 
   /**

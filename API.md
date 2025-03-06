@@ -75,7 +75,6 @@ BigInt also can be used in Tag_Long input when allowBigint is true.
   * ``littleEndian`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read as little endian if true
   * ``asBigInt`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read i64 as BigInt if true
   * ``asTypedArray`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read array and list as TypedArray if true
-  * ``withoutNBTList`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read list of objects as Array with extra type property if true
   * ``Proxy`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Create proxied NBT object.
 * Returns: [``<NBT>``](#NBT)
 
@@ -323,7 +322,6 @@ Recursively detect whether objects are compvarely equal.
   * ``littleEndian`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read as little endian if true.
   * ``asBigInt`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read i64 as BigInt if true.
   * ``asTypedArray`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read array and list as TypedArray if true.
-  * ``withoutNBTList`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read list of objects as Array with extra type property if true.
   * ``asProxy`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Create proxied NBT object. See [NBT.createProxy()](#NBT.createProxy)
 * Returns: [``<Object>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
 
@@ -364,7 +362,6 @@ console.log(r);
   * ``littleEndian`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read as little endian if true.
   * ``asBigInt`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read i64 as BigInt if true.
   * ``asTypedArray`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read array and list as TypedArray if true.
-  * ``withoutNBTList`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Read list of objects as Array with extra type property if true.
   * ``asProxy`` [``<Boolean>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Data_structures#Boolean_type) Create proxied NBT object.
 * Returns: [``<Object[]>``](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object)
 
