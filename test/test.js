@@ -102,7 +102,7 @@ function test9() {
   console.log(r.qwq == 0);
 
   r["i8>qwq"] = 114514;
-  console.log(r.qwq == 255);
+  console.log(r.qwq == 127);
 
   r["str>qwq"] = 114514;
   console.log(r.qwq == "114514");
