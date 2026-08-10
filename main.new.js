@@ -280,11 +280,11 @@ function baseReader(buf, options, isSerial) {
       , result;
 
     result = options.asTypedArray
-      ? new Int32Array(l)
-      : new Array(l);
+      ? new Int32Array(length)
+      : new Array(length);
 
     for (var i = 0; i < length; i++)
-      result[i] = this[4]();
+      result[i] = this[3]();
 
     return result;
   }.bind(func);
@@ -341,8 +341,204 @@ const NBTWriterProto = {
 
 };
 
-function baseWriter() {
+function detectCircular(obj) {
+  var cache = new WeakSet();
 
+  function recurse(o) {
+    o = o[PROXIED_NBT] || o;
+
+    for (var k of Object.getOwnPropertyNames(o)) {
+      var tk = expandTypedKey(k);
+      if (!tk || typeof TYPE_DEF[tk[0]] !== "number")
+        continue;
+
+      var v = o[k];
+      if (typeof v === "object" && v !== null && !ArrayBuffer.isView(v)) {
+        if (cache.has(v))
+          throw new Error("Cannot serialize circular reference to NBT.");
+        cache.add(v);
+
+        if (Array.isArray(v))
+          for (var i = 0, im = v.length; i < im; i++)
+            if (typeof v[i] === "object" && v[i] !== null)
+              recurse(v[i]);
+        else
+          recurse(v);
+      }
+    }
+  }
+
+  cache.add(obj);
+  recurse(obj);
+  return obj;
+}
+
+function baseWriter(obj, option) {
+  // Write a primitive value.
+  function g(a, b, c) {
+    if (offset + b > abuf.byteLength) {
+      var l = abuf.byteLength;
+      while (l < offset + b) l *= 2;
+      var t1 = new ArrayBuffer(l)
+        , t2 = new DataView(t1)
+        , t3 = new Uint8Array(t1);
+      t3.set(port);
+      abuf = t1, dtv = t2, port = t3;
+    }
+    dtv["set" + a](offset, (offset += b, c), isBedrock);
+  }
+
+  // Write a typed array (bulk copy for byte arrays).
+  function h(a) {
+    var t = fromTypedArray(a);
+    if (!t) return;
+
+    if (offset + a.byteLength > abuf.byteLength) {
+      var l = abuf.byteLength;
+      while (l < offset + a.byteLength) l *= 2;
+      var t1 = new ArrayBuffer(l)
+        , t2 = new DataView(t1)
+        , t3 = new Uint8Array(t1);
+      t3.set(port);
+      abuf = t1, dtv = t2, port = t3;
+    }
+
+    if (t === 1)
+      port.set(new Uint8Array(a.buffer, a.byteOffset, a.byteLength), offset),
+      offset += a.byteLength;
+    else
+      for (var i = 0, im = a.length; i < im; i++)
+        func[t](a[i]);
+  }
+
+  option = typeof option === "object" ? option : {};
+
+  var c = option.noCheck ? obj : detectCircular(obj)
+    , isBedrock = !!option.littleEndian
+    , func = {}
+    , abuf = new ArrayBuffer(128)
+    , dtv = new DataView(abuf)
+    , port = new Uint8Array(abuf)
+    , offset = 0;
+
+  // Unsigned 16 bit integer (used for string/array lengths).
+  func["Uint16"] = g.bind(func, "Uint16", 2);
+  // 64 bit signed integer (used for bigint i64).
+  func["BigInt64"] = g.bind(func, "BigInt64", 8);
+  // 8 bit signed integer.
+  func[1] = g.bind(func, "Int8", 1);
+  // 16 bit signed integer.
+  func[2] = g.bind(func, "Int16", 2);
+  // 32 bit signed integer.
+  func[3] = g.bind(func, "Int32", 4);
+  // 64 bit signed integer.
+  func[4] = function (v) {
+    if (typeof v === "bigint")
+      func["BigInt64"](v);
+    else if (typeof v === "object")
+      isBedrock
+        ? (func[3](v.low | 0), func[3](v.high | 0))
+        : (func[3](v.high | 0), func[3](v.low | 0));
+    else
+      func[3](0), func[3](0);
+  }.bind(func);
+  // Single precision float.
+  func[5] = g.bind(func, "Float32", 4);
+  // Double precision float.
+  func[6] = g.bind(func, "Float64", 8);
+
+  // Array of 8 bit signed integer (a08).
+  func[7] = function (o) {
+    func[3](o.length);
+    if (fromTypedArray(o) === 1)
+      h(o);
+    else
+      for (var i = 0, im = o.length; i < im; i++)
+        func[1](o[i]);
+  }.bind(func);
+
+  // String (str).
+  func[8] = function (s) {
+    var a = new TextEncoder().encode(s + "");
+    func["Uint16"](a.length);
+    h(a);
+  }.bind(func);
+
+  // List (lst).
+  func[9] = function (l) {
+    var t, m = l, n;
+
+    if (l.type && typeof TYPE_DEF[l.type] === "number")
+      // Specified type via .type property.
+      t = TYPE_DEF[l.type], n = l.type;
+    else if (ArrayBuffer.isView(l))
+      // TypedArray — infer type.
+      t = fromTypedArray(l), typeof t !== "number" && (n = "Invalid TypedArray");
+    else if (typeof l[0] === "string" && typeof TYPE_DEF[l[0]] === "number") {
+      // Legacy list format: first element is the type string.
+      t = TYPE_DEF[l[0]], m = Array.prototype.slice.call(l, 1), n = l[0];
+    }
+
+    // Empty list or null type (nul).
+    if (t === 0 || !t && !(m && m.length)) {
+      func[1](0);
+      func[3](0);
+    } else if (t) {
+      func[1](t);
+      func[3](m.length);
+      for (var i = 0, im = m.length; i < im; i++)
+        func[t](m[i]);
+    } else
+      throw new Error("Invalid type: " + (n || typeof l));
+  }.bind(func);
+
+  // Compound (obj).
+  func[10] = function (o, root) {
+    o = o[PROXIED_NBT] || o;
+
+    for (var k of Object.getOwnPropertyNames(o)) {
+      var tk = expandTypedKey(k)
+        , g = TYPE_DEF[tk[0]];
+
+      if (typeof g !== "number")
+        continue;
+
+      func[1](g);       // Type byte.
+      func[8](tk[1]);   // Key name.
+      func[g](o[k]);    // Value.
+    }
+
+    // TAG_End for non-root compounds.
+    root || func[1](0);
+  }.bind(func);
+
+  // Array of 32 bit signed integer (a32).
+  func[11] = function (o) {
+    func[3](o.length);
+    for (var i = 0, im = o.length; i < im; i++)
+      func[3](o[i]);
+  }.bind(func);
+
+  // Array of 64 bit signed integer (a64).
+  func[12] = function (o) {
+    func[3](o.length);
+    for (var i = 0, im = o.length; i < im; i++)
+      func[4](o[i]);
+  }.bind(func);
+
+  // Root writer: wraps the object in a root compound tag.
+  func["root"] = function (o) {
+    o = o[PROXIED_NBT] || o;
+
+    var keys = NBT.keys(o);
+    if (keys.length !== 1 || keys[0] !== "obj>")
+      o = { "obj>": o };
+
+    func[10](o, true);
+  }.bind(func);
+
+  func["root"](c);
+  return abuf.slice(0, offset);
 }
 
 class NBTPending {
@@ -359,7 +555,7 @@ const NBTProxyProto = {
   __proto__: null,
   get: function (target, property) {
     if (property === PROXIED_NBT)
-      return result;
+      return target;
     if (typeof property === "symbol")
       return void 0;
 
@@ -580,7 +776,8 @@ class NBT {
   }
 
   static Reader(buf, option, serial) {
-    return NBT.deserialize(buf, option, serial);
+    var r = NBT.deserialize(buf, option, serial);
+    return serial ? r : r.value;
   }
 
   static Writer(obj, option) {

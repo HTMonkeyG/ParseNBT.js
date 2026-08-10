@@ -11,121 +11,165 @@ if (typeof TextEncoder == "undefined")
 if (typeof TextDecoder == "undefined")
   throw new Error("Missing TextDecoder");
 
-const NBTObjectProto = {}
-  , TYPER = { 0: "null", 1: "i8", 2: "i16", 3: "i32", 4: "i64", 5: "f32", 6: "f64", 7: "a8", 8: "str", 9: "list", 10: "comp", 11: "a32", 12: "a64" }
-  , TYPEW = { "null": 0, "i8": 1, "i16": 2, "i32": 3, "i64": 4, "f32": 5, "f64": 6, "a8": 7, "str": 8, "list": 9, "comp": 10, "a32": 11, "a64": 12 }
-  , PROXIED_NBT = Symbol("NBT_PROXIED");
+const NBTObjectProto = Object.freeze({ __proto__: null })
+  , TYPE_DEF = {}
+  , TYPE_ARR = {}
+  , PROXIED_NBT = Symbol("PROXIED_NBT")
+  , KEY_TYPES = Symbol("KEY_TYPES");
 
-Object.freeze(NBTObjectProto);
+// Initialize type names.
+!function (t) {
+  t[t.nul = 0] = "nul";
+  t[t.i8 = 1] = "i8";
+  t[t.i16 = 2] = "i16";
+  t[t.i32 = 3] = "i32";
+  t[t.i64 = 4] = "i64";
+  t[t.f32 = 5] = "f32";
+  t[t.f64 = 6] = "f64";
+  t[t.a8 = 7] = "a8";
+  t[t.str = 8] = "str";
+  t[t.list = 9] = "list";
+  t[t.comp = 10] = "comp";
+  t[t.a32 = 11] = "a32";
+  t[t.a64 = 12] = "a64";
 
-function detectCircularReference(obj) {
-  var cache = new WeakSet();
-  function recurse(obj) {
-    obj = obj[PROXIED_NBT] || obj;
-    for (var k of Object.getOwnPropertyNames(obj)) {
-      // Write values
-      var f = splitTK(k)
-        , g = TYPEW[f[0]];
-      if (!g)
-        continue;
-      var value = obj[k];
-      if (typeof value == 'object' && value !== null && !ArrayBuffer.isView(value)) {
-        if (cache.has(value))
-          throw new Error("Cannot serialize circular reference to NBT.");
-        cache.add(value);
-        if (Array.isArray(value))
-          for (var im = value.length, i = 0, v = value[0]; i < im; i++, v = value[i])
-            typeof v == "object" && v !== null && recurse(value);
-        else
-          recurse(value);
-      }
-    }
-    return obj
-  }
+  // New alias names.
+  t.i08 = 1;
+  t.a08 = 7;
+  t.lst = 9;
+  t.obj = 10;
+}(TYPE_DEF);
 
-  cache.add(obj);
-  return recurse(obj);
+// Initialize typed arrays.
+!function (t) {
+  t[1] = [Int8Array, Uint8Array, Uint8ClampedArray];
+  t[2] = [Int16Array, Uint16Array];
+  t[3] = [Int32Array, Uint32Array];
+  t[4] = [BigInt64Array, BigUint64Array];
+  t[5] = [Float32Array];
+  t[6] = [Float64Array];
+}(TYPE_ARR);
+
+// Get NBT type index of TypedArray arr.
+function fromTypedArray(arr) {
+  for (var i = 1; i < 7; i++)
+    for (var c of TYPE_ARR[i])
+      if (arr instanceof c)
+        return i;
+
+  return void 0;
 }
 
-function getTypeOfArray(l) {
-  var constructors = new Map();
-  constructors.set(Int8Array, 1);
-  constructors.set(Uint8Array, 1);
-  constructors.set(Uint8ClampedArray, 1);
-  constructors.set(Int16Array, 2);
-  constructors.set(Uint16Array, 2);
-  constructors.set(Int32Array, 3);
-  constructors.set(Uint32Array, 3);
-  constructors.set(BigInt64Array, 4);
-  constructors.set(BigUint64Array, 4);
-  constructors.set(Float32Array, 5);
-  constructors.set(Float64Array, 6);
-
-  for (var c of constructors)
-    if (l instanceof c[0])
-      return c[1];
-
-  return false
-}
-
+// Get TypedArray constructor from NBT type index.
 function toTypedArray(t) {
-  return {
-    1: Int8Array,
-    2: Int16Array,
-    3: Int32Array,
-    4: BigInt64Array,
-    5: Float32Array,
-    6: Float64Array
-  }[t];
+  return TYPE_ARR[t]?.[0];
 }
 
-function typeCheck(v, t) {
+function expandTypedKey(s) {
+  var i = s.indexOf(">")
+    , t;
+
+  if (i === -1)
+    return void 0;
+
+  t = s.slice(0, i);
+
+  return typeof TYPE_DEF[t] === "number"
+    ? [t, s.slice(i + 1)]
+    : void 0;
+}
+
+function validateType(v, t) {
   switch (t) {
     case "i8":
+    case "i08":
       return typeof v == "number" ? v < -128 ? -128 : v > 127 ? 127 : v : 0;
     case "i16":
       return typeof v == "number" ? v < -32768 ? -32768 : v > 32767 ? 32767 : v : 0;
     case "i32":
-      return typeof v == "number" ? v < -2147483648 ? -2147483648 : v > 2147483647 ? 2147483647 : v : 0;
+      return typeof v == "number" ? v >> 0 : 0;
     case "i64":
       if (typeof v == "object") {
         typeof v.high != "number" && (v.high = 0);
         typeof v.low != "number" && (v.low = 0);
-        return v
+        return v;
       } else if (typeof v == "bigint")
-        return v < -0x8000000000000000n ? -0x8000000000000000n : v > 0x7FFFFFFFFFFFFFFFn ? 0x7FFFFFFFFFFFFFFFn : v
+        return BigInt.asIntN(64, v);
       else
-        return {
-          high: 0,
-          low: typeof v == "number" ? v | 0 : 0
-        };
-    case "f32": case "f64":
-      return typeof v == "number" ? v : 0
+        return BigInt.asIntN(64, typeof v == "number" ? BigInt(v) : 0n);
+    case "f32":
+      return typeof v == "number" ? Math.fround(v) : 0;
+    case "f64":
+      return typeof v == "number" ? v : 0;
     case "str":
       return typeof v == "undefined" || v === null ? "" : v + "";
     case "comp":
+    case "obj":
       return typeof v == "object" ? v : NBT.create(true);
-    case "list": case "a8": case "a32": case "a64":
+    case "lst":
+    case "list":
+    case "a8":
+    case "a08":
+    case "a32":
+    case "a64":
       return typeof v == "object" ? v : [];
+    default:
+      throw new Error("invalid type " + t);
   }
 }
 
-function splitTK(s) {
-  var i = s.indexOf(">");
-  if (i == -1)
-    return [null, s];
-  return [
-    s.slice(0, i),
-    s.slice(i + 1)
-  ]
+function nbtPrimitiveRead() {
+
 }
 
-function ReaderProto(buf, option, isSerial) {
-  function g(b, c) {
-    return dtv["get" + b](offset, (offset += c, isBedrock))
+const NBTReaderProto = {
+  type: 0,
+  subtype: 0,
+  offset: 0,
+  isBedrock: false,
+  dataView: null,
+  buffer: null,
+
+  primitive: function (type, size) {
+    return this.dataView["get" + type](
+      this.offset,
+      (this.offset += size, this.isBedrock)
+    );
+  },
+  Uint16: null,
+  1: null,
+  2: null,
+  3: null,
+  4: null,
+  5: null,
+  6: null,
+  7: function () {
+    var length = this[3]()
+      , result, i;
+
+    if (this.option.asTypedArray) {
+      result = new (toTypedArray(1))(length);
+      result.set(this.buffer.slice(offset, offset += length))
+    } else {
+      result = new Array(length);
+      for (i = 0; i < length; i++)
+        result[i] = this[1]();
+    }
+
+    return result
+  }
+};
+
+function baseReader(buf, options, isSerial) {
+  function primitive(b, c) {
+    return dtv["get" + b](offset, (offset += c, isBedrock));
   }
 
-  option = typeof option == "object" ? option : {};
+  function error(offset, byte) {
+    throw new Error(`invalid tag type at offs+0x${offset.toString(16)}: ${byte.toString(16)}`);
+  }
+
+  options = typeof options === "object" ? options : {};
 
   var offset = 0
     , dtv = new DataView(buf)
@@ -133,119 +177,136 @@ function ReaderProto(buf, option, isSerial) {
     , isBedrock = false
     , func = {};
 
-  if (option.littleEndian) {
-    // Detect MCBE NBT header
+  if (options.littleEndian) {
+    // Detect MCBE NBT header.
     buf.length > 8 && dtv.getUint32(4, true) == u8a.byteLength - 8 && (offset = 8);
     isBedrock = true;
   }
 
-  // Unsigned 16 bit integer
-  // Only used in length of array-like
-  func["Uint16"] = g.bind(func, "Uint16", 2);
-  // 8 bit signed integer
-  func[1] = g.bind(func, "Int8", 1);
-  // 16 bit signed integer
-  func[2] = g.bind(func, "Int16", 2);
-  // 32 bit signed integer
-  func[3] = g.bind(func, "Int32", 4);
-  // 64 bit signed integer
-  func[4] = option.asBigInt ? g.bind(func, "BigInt64", 8) : function () {
+  // Unsigned 16 bit integer.
+  // Only used in length of array-like types.
+  func["Uint16"] = primitive.bind(func, "Uint16", 2);
+  // 8 bit signed integer.
+  func[1] = primitive.bind(func, "Int8", 1);
+  // 16 bit signed integer.
+  func[2] = primitive.bind(func, "Int16", 2);
+  // 32 bit signed integer.
+  func[3] = primitive.bind(func, "Int32", 4);
+  // 64 bit signed integer.
+  func[4] = options.asBigInt ? primitive.bind(func, "BigInt64", 8) : function () {
     var a = this[3]()
       , b = this[3]();
     return isBedrock ? { high: b, low: a } : { high: a, low: b }
   }.bind(func);
-  // Single precision float
-  func[5] = g.bind(func, "Float32", 4);
-  // Double precision float
-  func[6] = g.bind(func, "Float64", 8);
+  // Single precision float.
+  func[5] = primitive.bind(func, "Float32", 4);
+  // Double precision float.
+  func[6] = primitive.bind(func, "Float64", 8);
 
-  // Array of 8 bit signed integer
+  // Array of 8 bit signed integer.
   func[7] = function () {
-    var a = this[3]()
-      , r, i;
+    var length = this[3]()
+      , result, i;
 
-    if (option.asTypedArray) {
-      r = new (toTypedArray(1))(a);
-      r.set(u8a.slice(offset, offset += a))
+    if (options.asTypedArray) {
+      result = new (toTypedArray(1))(length);
+      result.set(u8a.slice(offset, offset += length));
     } else {
-      r = new Array(a);
-      for (i = 0; i < a; i++)
-        r[i] = this[1]();
+      result = new Array(length);
+      for (i = 0; i < length; i++)
+        result[i] = this[1]();
     }
 
-    return r
+    return result;
   }.bind(func);
 
-  // String
+  // String.
   func[8] = function () {
     var l = this["Uint16"]();
     return new TextDecoder().decode(u8a.slice(offset, offset += l))
   }.bind(func);
 
-  // List tag
+  // List tag.
   func[9] = function () {
-    var r, c, l, i;
+    var subType, length, result, i;
 
-    // Type of elements in the list
-    c = this[1]();
-    // Length of the list
-    l = this[3]();
-    r = (option.asTypedArray && toTypedArray(c)) ? new (toTypedArray(c))(l) : new Array(l);
+    // Type of elements in the list. Only used by the compound tag.
+    subType = this[1]();
+    // The length of the list, 32-bit signed integer.
+    length = this[3]();
+    // The result.
+    result = (options.asTypedArray && toTypedArray(subType))
+      ? new (toTypedArray(subType))(length)
+      : new Array(length);
 
-    if (this[c]) {
-      for (i = 0; i < l; i++)
-        r[i] = this[c]();
-      Array.isArray(r) && r.unshift(TYPER[c])
-    } else if (c == 0)
-      // Null type list, always empty
+    if (this[subType]) {
+      for (i = 0; i < length; i++)
+        result[i] = this[subType]();
+      Array.isArray(result) && result.unshift(TYPE_DEF[subType]);
+    } else if (!subType)
+      // Null type list, always with empty items.
       ;
     else
-      throw new Error(`Invalid tag ID at Byte${offset - 1} : ${u8a[offset - 1]}`);
-    return r;
+      error(offset - 1, u8a[offset - 1]);
+
+    return result;
   }.bind(func);
 
-  // Compound tag
+  // Compound tag.
   func[10] = function () {
-    var r = NBT.create(option.asProxy)
-      , o = r[PROXIED_NBT] || r
-      , c, d;
+    var result = NBT.create(options.asProxy)
+      , obj = result[PROXIED_NBT] || result
+      , type, keyName, value;
 
-    while ((c = u8a[offset]) > 0x00)
-      if (this[c]) {
-        offset++;
-        d = this[8]();
-        o[TYPER[c] + ">" + d] = this[c]();
-      } else
-        throw new Error('Invalid tag ID at Byte' + offset + ' : ' + u8a[offset]);
-    return offset++, r;
+    while ((type = u8a[offset]) > 0x00) {
+      if (!this[type])
+        error(offset, u8a[offset]);
+
+      offset++;
+
+      keyName = this[8]();
+      value = this[type]();
+
+      obj[TYPE_DEF[type] + ">" + keyName] = value;
+    }
+
+    offset++;
+
+    return result;
   }.bind(func);
 
-  // Array of 32 bit signed integer
+  // Array of 32 bit signed integer.
   func[11] = function () {
-    var l = this[3]()
-      , r = (option.asTypedArray && option.asBigInt) ? new Int32Array(l) : new Array(l)
-      , i;
+    var length = this[3]()
+      , result;
 
-    for (i = 0; i < l; i++)
-      r[i] = this[3]();
+    result = options.asTypedArray
+      ? new Int32Array(length)
+      : new Array(length);
 
-    return r
+    for (var i = 0; i < length; i++)
+      result[i] = this[3]();
+
+    return result;
   }.bind(func);
 
-  // Array of 64 bit signed integer
+  // Array of 64 bit signed integer.
   func[12] = function () {
-    var l = this[3]()
-      , r = (option.asTypedArray && option.asBigInt) ? new BigInt64Array(l) : new Array(l)
-      , i;
+    var length = this[3]()
+      , result;
 
-    for (i = 0; i < l; i++)
-      r[i] = this[4]();
+    result = (options.asTypedArray && options.asBigInt)
+      ? new BigInt64Array(length)
+      : new Array(length);
 
-    return r
+    for (var i = 0; i < length; i++)
+      result[i] = this[4]();
+
+    return result;
   }.bind(func);
 
   func["root"] = function () {
-    var r = NBT.create(option.asProxy)
+    var r = NBT.create(options.asProxy)
       , c = u8a[offset]
       , o = r[PROXIED_NBT] || r
       , d;
@@ -253,9 +314,10 @@ function ReaderProto(buf, option, isSerial) {
     if (this[c]) {
       offset++;
       d = this[8]();
-      o[TYPER[c] + ">" + d] = this[c]();
+      o[TYPE_DEF[c] + ">" + d] = this[c]();
     } else
-      throw new Error('Invalid tag ID at Byte' + offset + ' : ' + u8a[offset]);
+      error(offset, u8a[offset]);
+
     return r
   }.bind(func);
 
@@ -276,13 +338,55 @@ function ReaderProto(buf, option, isSerial) {
     }
 }
 
-function WriterProto(obj, option) {
-  // Write a single value
+const NBTWriterProto = {
+
+};
+
+function detectCircular(obj) {
+  var stack = [obj]
+    , cache = new Set();
+
+  cache.add(obj);
+
+  while (stack.length) {
+    var o = stack.pop()
+      , propKeys = Object.getOwnPropertyNames(o);
+
+    for (var i = 0, im = propKeys.length; i < im; i++) {
+      var key = propKeys[i]
+        , tk = expandTypedKey(key);
+
+      if (!tk || typeof TYPE_DEF[tk[0]] !== "number")
+        continue;
+
+      var v = o[key];
+      if (typeof v === "object" && v !== null && !ArrayBuffer.isView(v)) {
+        if (cache.has(v))
+          throw new Error("Cannot serialize circular reference to NBT.");
+        cache.add(v);
+
+        if (Array.isArray(v)) {
+          for (var j = 0, jm = v.length; j < jm; j++) {
+            var elem = v[j];
+            if (typeof elem === "object" && elem !== null)
+              stack.push(elem);
+          }
+        } else {
+          stack.push(v);
+        }
+      }
+    }
+  }
+
+  return obj;
+}
+
+function baseWriter(obj, option) {
+  // Write a primitive value.
   function g(a, b, c) {
     if (offset + b > abuf.byteLength) {
       var l = abuf.byteLength;
-      while (l < offset + b)
-        l *= 2;
+      while (l < offset + b) l *= 2;
       var t1 = new ArrayBuffer(l)
         , t2 = new DataView(t1)
         , t3 = new Uint8Array(t1);
@@ -292,16 +396,14 @@ function WriterProto(obj, option) {
     dtv["set" + a](offset, (offset += b, c), isBedrock);
   }
 
-  // Write a typed array
+  // Write a typed array (bulk copy for byte arrays).
   function h(a) {
-    var t = getTypeOfArray(a);
-    if (!t)
-      return;
+    var t = fromTypedArray(a);
+    if (!t) return;
 
     if (offset + a.byteLength > abuf.byteLength) {
       var l = abuf.byteLength;
-      while (l < offset + a.byteLength)
-        l *= 2;
+      while (l < offset + a.byteLength) l *= 2;
       var t1 = new ArrayBuffer(l)
         , t2 = new DataView(t1)
         , t3 = new Uint8Array(t1);
@@ -309,16 +411,17 @@ function WriterProto(obj, option) {
       abuf = t1, dtv = t2, port = t3;
     }
 
-    if (t == 1)
-      port.set(a, offset), offset += a.byteLength;
+    if (t === 1)
+      port.set(new Uint8Array(a.buffer, a.byteOffset, a.byteLength), offset),
+      offset += a.byteLength;
     else
       for (var i = 0, im = a.length; i < im; i++)
         func[t](a[i]);
   }
 
-  option = typeof option == "object" ? option : {};
+  option = typeof option === "object" ? option : {};
 
-  var c = option.noCheck ? obj : detectCircularReference(obj)
+  var c = option.noCheck ? obj : detectCircular(obj)
     , isBedrock = !!option.littleEndian
     , func = {}
     , abuf = new ArrayBuffer(128)
@@ -326,291 +429,296 @@ function WriterProto(obj, option) {
     , port = new Uint8Array(abuf)
     , offset = 0;
 
+  // Unsigned 16 bit integer (used for string/array lengths).
   func["Uint16"] = g.bind(func, "Uint16", 2);
+  // 64 bit signed integer (used for bigint i64).
   func["BigInt64"] = g.bind(func, "BigInt64", 8);
+  // 8 bit signed integer.
   func[1] = g.bind(func, "Int8", 1);
+  // 16 bit signed integer.
   func[2] = g.bind(func, "Int16", 2);
+  // 32 bit signed integer.
   func[3] = g.bind(func, "Int32", 4);
-  func[4] = function (o) {
-    if (typeof o == 'bigint')
-      func["BigInt64"](o);
-    else if (typeof o != "object")
-      func[3](0), func[3](0)
+  // 64 bit signed integer.
+  func[4] = function (v) {
+    if (typeof v === "bigint")
+      func["BigInt64"](v);
+    else if (typeof v === "object")
+      isBedrock
+        ? (func[3](v.low | 0), func[3](v.high | 0))
+        : (func[3](v.high | 0), func[3](v.low | 0));
     else
-      isBedrock ? (func[3](0 | o.low || 0), func[3](0 | o.high || 0)) : (func[3](0 | o.high || 0), func[3](0 | o.low || 0));
+      func[3](0), func[3](0);
   }.bind(func);
+  // Single precision float.
   func[5] = g.bind(func, "Float32", 4);
+  // Double precision float.
   func[6] = g.bind(func, "Float64", 8);
 
-  // Array of 8 bit signed integer
+  // Array of 8 bit signed integer (a08).
   func[7] = function (o) {
-    this[3](o.length);
-    if (getTypeOfArray(o) == 1)
+    func[3](o.length);
+    if (fromTypedArray(o) === 1)
       h(o);
     else
-      for (var im = o.length, i = 0; i < im; i++)
-        this[1](o[i])
+      for (var i = 0, im = o.length; i < im; i++)
+        func[1](o[i]);
   }.bind(func);
 
-  // String tag
+  // String (str).
   func[8] = function (s) {
-    var a = new TextEncoder().encode(s);
-    this["Uint16"](a.length);
+    var a = new TextEncoder().encode(s + "");
+    func["Uint16"](a.length);
     h(a);
   }.bind(func);
 
-  // List tag
-  // Allows any object with type, length and integer keys
+  // List (lst).
   func[9] = function (l) {
     var t, m = l, n;
 
-    if (l.type && typeof TYPEW[l.type] != 'undefined')
-      // Specified type
-      t = TYPEW[l.type], n = l.type;
+    if (l.type && typeof TYPE_DEF[l.type] === "number")
+      // Specified type via .type property.
+      t = TYPE_DEF[l.type], n = l.type;
     else if (ArrayBuffer.isView(l))
-      // Typed array
-      t = getTypeOfArray(l), n = "Invalid TypedArray";
-    else {
-      // Legacy NBT list with type on the first element
-      t = TYPEW[l[0]];
-      m = l.slice(1);
-      n = l[0];
+      // TypedArray — infer type.
+      t = fromTypedArray(l), typeof t !== "number" && (n = "Invalid TypedArray");
+    else if (typeof l[0] === "string" && typeof TYPE_DEF[l[0]] === "number") {
+      // Legacy list format: first element is the type string.
+      t = TYPE_DEF[l[0]], m = Array.prototype.slice.call(l, 1), n = l[0];
     }
 
-    // Write as empty list when m.length is falsy or null type
-    if (t === 0 || !m.length) {
-      this[1](0);
-      this[3](0);
+    // Empty list or null type (nul).
+    if (t === 0 || !t && !(m && m.length)) {
+      func[1](0);
+      func[3](0);
     } else if (t) {
-      // Write type of the list
-      this[1](t);
-      // Write length
-      this[3](m.length);
+      func[1](t);
+      func[3](m.length);
       for (var i = 0, im = m.length; i < im; i++)
-        this[t](m[i])
+        func[t](m[i]);
     } else
-      throw new Error("Invalid type: " + n);
+      throw new Error("Invalid type: " + (n || typeof l));
   }.bind(func);
 
-  // Compound tag
+  // Compound (obj).
   func[10] = function (o, root) {
     o = o[PROXIED_NBT] || o;
 
-    // Optimize performance
-    // Reduce traversal times 
     for (var k of Object.getOwnPropertyNames(o)) {
-      // Write values
-      var f = splitTK(k)
-        , g = TYPEW[f[0]];
-      // Ignore non-NBT keys
-      if (!g)
+      var tk = expandTypedKey(k)
+        , g = TYPE_DEF[tk[0]];
+
+      if (typeof g !== "number")
         continue;
 
-      this[1](g);
-      this[8](f[1]);
-      this[g](o[k]);
+      func[1](g);       // Type byte.
+      func[8](tk[1]);   // Key name.
+      func[g](o[k]);    // Value.
     }
-    root || this[1](0)
+
+    // TAG_End for non-root compounds.
+    root || func[1](0);
   }.bind(func);
 
-  // Array of 32 bit signed integer
+  // Array of 32 bit signed integer (a32).
   func[11] = function (o) {
-    // Write length
-    this[3](o.length);
-    for (var im = o.length, i = 0; i < im; i++)
-      // Write elements
-      this[3](o[i])
+    func[3](o.length);
+    for (var i = 0, im = o.length; i < im; i++)
+      func[3](o[i]);
   }.bind(func);
 
-  // Array of 64 bit signed integer
+  // Array of 64 bit signed integer (a64).
   func[12] = function (o) {
-    this[3](o.length);
-    for (var im = o.length, i = 0; i < im; i++)
-      this[4](o[i])
+    func[3](o.length);
+    for (var i = 0, im = o.length; i < im; i++)
+      func[4](o[i]);
   }.bind(func);
 
+  // Root writer: wraps the object in a root compound tag.
   func["root"] = function (o) {
     o = o[PROXIED_NBT] || o;
 
     var keys = NBT.keys(o);
-    if (keys.length != 1 || keys[0] != "comp>")
+    if (keys.length !== 1 || keys[0] !== "comp>")
       o = { "comp>": o };
 
-    this[10](o, true)
+    func[10](o, true);
   }.bind(func);
 
   func["root"](c);
-  return abuf.slice(0, offset)
+  return abuf.slice(0, offset);
 }
 
-class NBT {
-  /**
-   * A symbol to get the original object of a proxied NBT object.
-   * 
-   * Only for debug use.
-   */
-  static get PROXIED_NBT() {
-    return PROXIED_NBT
+class NBTPending {
+  constructor() {
+    this.data = null;
   }
+}
 
-  /**
-   * Create a new empty NBT object.
-   * @param {Boolean} [isProxy] - Create a new empty NBT object with proxy if true.
-   * @returns {Object}
-   */
+// To reduce the cost of allocating functions, we use prototype to share
+// functions.
+// This optimization reduces the memory consumption for creating NBT objects
+// to ~30% of the original amount.
+const NBTProxyProto = {
+  __proto__: null,
+  get: function (target, property) {
+    if (property === PROXIED_NBT)
+      return target;
+    if (typeof property === "symbol")
+      return void 0;
+
+    if (expandTypedKey(property))
+      // Keys with a valid type.
+      return target[property];
+
+    // Keys without a type.
+    var t = this.keyTypes[property];
+    if (!t)
+      // No existing key matches.
+      return void 0;
+
+    return target[t + ">" + property];
+  },
+  set: function (target, property, value) {
+    if (typeof property === "symbol")
+      return false;
+
+    var tk = expandTypedKey(property)
+      , t;
+
+    if (tk) {
+      // Key with a valid type. Directly set existing properties.
+      if (typeof target[property] !== "undefined") {
+        target[property] = validateType(value, tk[0]);
+        return true;
+      }
+
+      // Type override if the type mismatches exsisting key.
+      if (t = this.keyTypes[tk[1]])
+        delete target[t + ">" + tk[1]];
+
+      // Record the new type of the key.
+      this.keyTypes[tk[1]] = tk[0];
+      target[property] = validateType(value, tk[0]);
+
+      return true;
+    }
+
+    // Keys without a type.
+    if (!(t = this.keyTypes[property]))
+      // No existing key matches.
+      return false;
+
+    // Set the new value.
+    target[t + ">" + property] = validateType(value, t);
+
+    return true;
+  },
+  deleteProperty: function (target, property) {
+    if (typeof property === "symbol")
+      return true;
+
+    if (expandTypedKey(property))
+      // Keys with a valid type. Directly delete existing properties.
+      return delete target[property];
+
+    // Keys without a type.
+    var t = this.keyTypes[property];
+    if (t)
+      return delete target[t + ">" + property];
+
+    return true;
+  },
+  setPrototypeOf: function () {
+    return false;
+  },
+  defineProperty: function () {
+    return false;
+  },
+  preventExtensions: function () {
+    return false;
+  },
+  getOwnPropertyDescriptor: function () {
+    return void 0;
+  },
+  ownKeys: function (target) {
+    return NBT.keys(target);
+  },
+  has(target, property) {
+    if (expandTypedKey(property))
+      return property in target;
+    return property in this.keyTypes;
+  }
+};
+
+class NBT {
   static create(isProxy) {
-    var result = {
-      __proto__: NBTObjectProto
-    };
+    var result = { __proto__: NBTObjectProto }
+      , keyTypes;
 
     if (!isProxy)
       return result;
 
+    keyTypes = { __proto__: null };
+    result[KEY_TYPES] = keyTypes;
+
     return new Proxy(result, {
-      get: function (target, property) {
-        if (property === PROXIED_NBT)
-          return result;
-        if (typeof property == "symbol")
-          return void 0;
-
-        var tk = splitTK(property);
-        if (tk && TYPEW[tk[0]])
-          // Key with type
-          return target[property];
-
-        // Key without type
-        for (var k of NBT.keys(target))
-          if (splitTK(k)[1] == property)
-            return target[k];
-        return void 0
-      },
-      set: function (target, property, value) {
-        if (typeof property == "symbol")
-          return void 0;
-        var tk = splitTK(property);
-        if (tk && TYPEW[tk[0]]) {
-          // Key with type
-          // Directly return existing propertys
-          if (typeof target[property] != "undefined") {
-            target[property] = typeCheck(value, tk[0]);
-            return true
-          }
-          // Type override
-          for (var k of NBT.keys(target))
-            if (splitTK(k)[1] == tk[1])
-              delete target[k];
-          target[property] = typeCheck(value, tk[0]);
-          return true
-        }
-        // Key without type
-        for (var k of NBT.keys(target)) {
-          var tk = splitTK(k);
-          if (tk[1] == property) {
-            target[k] = typeCheck(value, tk[0]);
-            return true
-          }
-        }
-        return false
-      },
-      deleteProperty: function (target, property) {
-        if (typeof property == "symbol")
-          return true;
-        var tk = splitTK(property);
-        if (tk && TYPEW[tk[0]]) {
-          // Key with type
-          // Directly return existing propertys
-          if (typeof target[property] != "undefined")
-            return delete target[property];
-          // Type override
-          for (var k of NBT.keys(target))
-            if (splitTK(k)[1] == tk[1])
-              return delete target[k];
-        }
-        // Key without type
-        for (var k of NBT.keys(target))
-          if (splitTK(k)[1] == property)
-            return delete target[k];
-      },
-      setPrototypeOf: function () {
-        return false
-      },
-      defineProperty: function () {
-        return false
-      },
-      preventExtensions: function () {
-        return false
-      },
-      getOwnPropertyDescriptor: function () {
-        return void 0
-      },
-      ownKeys: function (target) {
-        return NBT.keys(target)
-      },
-      has(target, property) {
-        return NBT.keys(target).indexOf(property) !== -1
-      }
-    })
+      __proto__: NBTProxyProto,
+      keyTypes: keyTypes
+    });
   }
 
-  /**
-   * Returns a boolean value that indicates whether a value is a object created by NBT.create().
-   * @returns {Boolean}
-   */
   static isNBT(obj) {
     function $() { }
     $.prototype = NBTObjectProto;
     return obj instanceof $;
   }
 
-  /**
-   * Returns the names with valid type-value pair of an NBT object.
-   * @param {Object} obj 
-   * @returns {String[]}
-   */
   static keys(obj) {
-    var result = [];
     if (obj[PROXIED_NBT])
       obj = obj[PROXIED_NBT];
-    for (var k of Object.getOwnPropertyNames(obj)) {
-      var l = splitTK(k);
-      if (TYPEW[l[0]])
-        result.push(k)
-    }
-    return result
+
+    return Object.getOwnPropertyNames(obj).filter(
+      key => {
+        var tk = expandTypedKey(key);
+        return tk && typeof TYPE_DEF[tk[0]] === "number";
+      }
+    );
   }
 
-  /**
-   * Copy the values of all of the NBT properties from one or more source objects 
-   * to a target object.
-   * 
-   * Returns the target object.
-   * @param {Object} target - The target object to copy to.
-   * @param {Object} source - The source object from which to copy properties.
-   */
   static assign(target, ...source) {
     var t = target[PROXIED_NBT] || target
-      , j = {};
+      , validKeys = {}
+      , kt = t[KEY_TYPES];
 
-    if (!source.length || typeof target != "object" || target === null)
+    if (!source.length || typeof target !== "object" || target === null)
       return target;
 
+    // Storage all valid NBT keys of target object.
     for (var k of Object.getOwnPropertyNames(t)) {
-      var l = splitTK(k);
-      if (TYPEW[l[0]])
-        j[l[1]] = k
+      var tk = expandTypedKey(k);
+      if (typeof TYPE_DEF[tk[0]] === "number")
+        validKeys[tk[1]] = k;
     }
 
+    // Do assign.
     for (var s of source) {
-      if (typeof s != "object" || s === null)
+      if (typeof s !== "object" || s === null)
         continue;
+
       s = s[PROXIED_NBT] || s;
       for (var k of Object.getOwnPropertyNames(s)) {
-        var l = splitTK(k);
-        if (TYPEW[l[0]]) {
-          // Type override
-          if (j[l[1]])
-            delete t[j[l[1]]];
-          t[k] = s[k]
+        var tk = expandTypedKey(k);
+
+        if (typeof TYPE_DEF[tk[0]] === "number") {
+          // Type override.
+          if (validKeys[tk[1]]) {
+            delete t[validKeys[tk[1]]];
+            if (kt) delete kt[tk[1]];
+          }
+
+          t[k] = s[k];
+          if (kt) kt[tk[1]] = tk[0];
         }
       }
     }
@@ -618,12 +726,6 @@ class NBT {
     return target
   }
 
-  /**
-   * Recursively detect whether objects are compvarely equal.
-   * @param {Object} a
-   * @param {Object} b 
-   * @returns {Boolean}
-   */
   static equal(a, b) {
     var visited = new WeakSet();
 
@@ -643,7 +745,7 @@ class NBT {
         return false;
       if (typeof a !== typeof b)
         return false;
-      if (typeof a !== 'object')
+      if (typeof a !== "object")
         return a === b;
 
       visited.add(a);
@@ -659,7 +761,7 @@ class NBT {
       }
 
       if (ArrayBuffer.isView(a) && ArrayBuffer.isView(b)) {
-        if (getTypeOfArray(a) !== getTypeOfArray(b))
+        if (fromTypedArray(a) !== fromTypedArray(b))
           return false;
         if (a.length !== b.length)
           return false;
@@ -685,60 +787,50 @@ class NBT {
     return recursive(a, b);
   }
 
-  /**
-   * Read NBT data in buffer.
-   * @param {ArrayBuffer} buf - Input buffer.
-   * @param {Object} option - Options.
-   * @param {Boolean} option.littleEndian - Read as little endian if true.
-   * @param {Boolean} option.asBigInt - Read i64 as BigInt if true.
-   * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true.
-   * @param {Boolean} option.asProxy - Create proxied NBT object.
-   * @returns {Object}
-   */
-  static Reader(buf, option) {
-    return ReaderProto(buf, option, !1).value
+  static clone(obj) {
+
   }
 
-  /**
-   * Read concatenated root label sequence.
-   * @param {ArrayBuffer} buf - Input buffer.
-   * @param {Object} option - Options.
-   * @param {Boolean} option.littleEndian - Read as little endian if true.
-   * @param {Boolean} option.asBigInt - Read i64 as BigInt if true.
-   * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true.
-   * @param {Boolean} option.asProxy - Create proxied NBT object.
-   * @returns {Array} Array of NBT root tags.
-   */
-  static ReadSerial(buf, option) {
-    return ReaderProto(buf, option, !0)
+  static Reader(buf, option, serial) {
+    var r = NBT.deserialize(buf, option, serial);
+    return serial ? r : r.value;
   }
 
-  /**
-   * Serialize NBT object.
-   * @param {Object} obj - Input object.
-   * @param {Object} option - Options.
-   * @param {Boolean} option.littleEndian - Write as little endian if true.
-   * @param {Boolean} option.noCheck - Disable circular reference detect for faster operation.
-   * @returns {ArrayBuffer}
-   */
   static Writer(obj, option) {
-    return WriterProto(obj, option)
+    return NBT.serialize(obj, option);
+  }
+
+  static deserialize(buf, option, serial) {
+    return baseReader(buf, option, serial);
+  }
+
+  static serialize(obj, option) {
+    return baseWriter(obj, option);
+  }
+
+  static stringify(obj) {
+    throw new Error("unsupported method");
+  }
+
+  static parse(str) {
+    throw new Error("unsupported method");
   }
 
   /**
-   * Creates a reader.
-   * @param {ArrayBuffer} buf - Input buffer.
-   * @param {Object} option - Options.
-   * @param {Boolean} option.littleEndian - Read as little endian if true.
-   * @param {Boolean} option.asBigInt - Read i64 as BigInt if true.
-   * @param {Boolean} option.asTypedArray - Read array and list as TypedArray if true.
-   * @param {Boolean} option.asProxy - Create proxied NBT object.
-   * @returns {Object}
+   * Creates a stream reader from a buffer, or an NBT object from a plain object.
+   * @param {ArrayBuffer|Object} buf - Input buffer for stream reading, or a plain object to convert to NBT.
+   * @param {Object} [option] - Read options (only used when buf is a buffer).
    */
   constructor(buf, option) {
-    this.buf = buf;
-    this.offset = 0;
-    this.option = option || {};
+    // Stream reader mode: first argument is a buffer.
+    if (buf instanceof ArrayBuffer || ArrayBuffer.isView(buf)) {
+      this.buf = buf;
+      this.offset = 0;
+      this.option = option || {};
+      return;
+    }
+    // NBT object creation mode: first argument is a plain object.
+    return NBT.assign(NBT.create(true), buf);
   }
 
   /**
@@ -746,37 +838,36 @@ class NBT {
    * @returns {ArrayBuffer}
    */
   getBuffer() {
-    return this.buf
+    return this.buf;
   }
 
   /**
-   * Get offset.
+   * Get current offset.
    * @returns {Number}
    */
   getOffset() {
-    return this.offset
+    return this.offset;
   }
 
   /**
-   * Detect whether reached the end.
+   * Check whether more data can be read.
    * @returns {Boolean}
    */
   canRead() {
-    return this.offset < this.buf.byteLength
+    return this.offset < this.buf.byteLength;
   }
 
   /**
    * Read a single NBT root tag.
-   * 
-   * Returns null when read to the end.
+   * Returns null when the buffer is exhausted.
    * @returns {Object|null}
    */
   read() {
     if (!this.canRead())
       return null;
-    var t = ReaderProto(this.buf.slice(this.offset), this.option, !1);
+    var t = baseReader(this.buf.slice(this.offset), this.option);
     this.offset += t.length;
-    return t.value
+    return t.value;
   }
 
   [Symbol.iterator]() {
@@ -787,9 +878,9 @@ class NBT {
         return {
           done: s,
           value: t.read()
-        }
+        };
       }
-    }
+    };
   }
 }
 
