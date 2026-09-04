@@ -31,9 +31,9 @@ ParseNBT.js' output uses a special data structure for keys of the object.
 For example:
 ```json
 {
-  "comp>": { 
+  "obj>": { 
     "i32>count": 100,
-    "list>pos": [ "i32", 0, 0, 0 ],
+    "lst>pos": [ "i32", 0, 0, 0 ],
     "i64>ticks": { "low": 114514, "high": 1919810 }
   }
 }
@@ -47,17 +47,17 @@ The comparison table between the type string and the actual type is as follows:
 
 | Tag ID | Tag Type | Tag Type String |
 |  ----  | ---- | ---- |
-| 0  | TAG_End | null |
-| 1  | TAG_Byte | i8 |
+| 0  | TAG_End | nul |
+| 1  | TAG_Byte | i08 |
 | 2  | TAG_Short | i16 |
 | 3  | TAG_Int | i32 |
 | 4  | TAG_Long | i64 |
 | 5  | TAG_Float | f32 |
 | 6  | TAG_Double | f64 |
-| 7  | TAG_Byte_Array | a8 |
+| 7  | TAG_Byte_Array | a08 |
 | 8  | TAG_String | str |
-| 9  | TAG_List | list |
-| 10 | TAG_Compound | comp |
+| 9  | TAG_List | lst |
+| 10 | TAG_Compound | obj |
 | 11 | TAG_Int_Array | a32 |
 | 12 | TAG_Long_Array | a64 |
 
@@ -192,7 +192,7 @@ var empty = NBT.create();
 console.log(NBT.isNBT(empty));
 // true
 
-console.log(NBT.isNBT({ "comp>":{ } }))
+console.log(NBT.isNBT({ "obj>":{ } }))
 // false
 ```
 
@@ -204,7 +204,7 @@ const NBT = require("parsenbt-js");
 var empty = NBT.create(true);
 
 // Initialize type of the key
-empty["i8>foo"] = 0;
+empty["i08>foo"] = 0;
 
 console.log(empty.foo);
 // 0
@@ -217,7 +217,7 @@ console.log(empty.foo);
 // Type override
 empty["str>foo"] = "bar";
 
-console.log(empty["i8>foo"]);
+console.log(empty["i08>foo"]);
 // undefined
 ```
 
@@ -229,7 +229,7 @@ const NBT = require("parsenbt-js");
 var empty = NBT.create(true);
 
 // Initialize type of the key
-empty["i8>foo"] = 0;
+empty["i08>foo"] = 0;
 
 console.log(empty.foo);
 // 0
@@ -257,7 +257,7 @@ const NBT = require("parsenbt-js");
 console.log(NBT.isNBT(NBT.create()));
 // true
 
-console.log({"comp":{ }});
+console.log({"obj":{ }});
 // false
 ```
 
@@ -290,7 +290,7 @@ var r = NBT.create()
   , t;
 
 r["str>awa"] = "qwq";
-r["i8>k"] = 42;
+r["i08>k"] = 42;
 
 s["i16>awa"] = 1145;
 
@@ -298,7 +298,7 @@ t = NBT.assign(r, s);
 
 console.log(t);
 // {
-//   "i8>k": 42,
+//   "i08>k": 42,
 //   "i16>awa": 1145
 // }
 ```

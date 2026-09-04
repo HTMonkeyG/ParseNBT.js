@@ -1,5 +1,12 @@
 declare class NBT {
   /**
+   * A symbol to get the original object of a proxied NBT object.
+   *
+   * Only for debug use.
+   */
+  static readonly PROXIED_NBT: symbol;
+
+  /**
    * Create a new empty NBT object.
    * @param isProxy - Create a new empty NBT object with proxy if true.
    */
@@ -8,7 +15,7 @@ declare class NBT {
   /**
    * Returns a boolean value that indicates whether a value is a object created by NBT.create().
    */
-  static isNBT(obj: object): boolean;
+  static isNBT(obj: unknown): boolean;
 
   /**
    * Returns the names with valid type-value pair of an NBT object.
@@ -16,72 +23,58 @@ declare class NBT {
   static keys(obj: object): string[];
 
   /**
-   * Copy the values of all of the NBT properties from one or more source objects 
+   * Copy the values of all of the NBT properties from one or more source objects
    * to a target object.
-   * 
+   *
    * Returns the target object.
-   * 
+   *
    * @param target - The target object to copy to.
    * @param source - The source object from which to copy properties.
    */
   static assign(target: object, ...source: object[]): object;
 
   /**
-   * Recursively detect whether objects are compvarely equal.
+   * Recursively detect whether objects are completely equal.
    */
-  static equal(a: object, b: object): boolean;
+  static equal(a: unknown, b: unknown): boolean;
 
   /**
    * Read NBT data in buffer.
-   * 
-   * @param buf - Input buffer.
+   *
+   * @param buf - Input buffer, or any view of one.
    * @param option - Options.
-   * @param option.littleEndian - Read as little endian if true.
-   * @param option.asBigInt - Read i64 as BigInt if true.
-   * @param option.asTypedArray - Read array and list as TypedArray if true.
-   * @param option.asProxy - Create proxied NBT object.
    */
-  static Reader(buf: ArrayBuffer, option?: { littleEndian: boolean, asBigInt: boolean, asTypedArray: boolean, asProxy: boolean }): object;
+  static Reader(buf: NBT.Input, option?: NBT.ReadOption): object;
 
   /**
    * Read concatenated root label sequence.
-   * 
-   * @param buf - Input buffer.
+   *
+   * @param buf - Input buffer, or any view of one.
    * @param option - Options.
-   * @param option.littleEndian - Read as little endian if true.
-   * @param option.asBigInt - Read i64 as BigInt if true.
-   * @param option.asTypedArray - Read array and list as TypedArray if true.
-   * @param option.asProxy - Create proxied NBT object.
    * @returns Array of NBT root tags.
    */
-  static ReadSerial(buf: ArrayBuffer, option?: { littleEndian: boolean, asBigInt: boolean, asTypedArray: boolean, asProxy: boolean }): object;
+  static ReadSerial(buf: NBT.Input, option?: NBT.ReadOption): object[];
 
   /**
    * Serialize NBT object.
-   * 
+   *
    * @param obj - Input object.
    * @param option - Options.
-   * @param option.littleEndian - Write as little endian if true.
-   * @param option.noCheck - Disable circular reference detect for faster operation.
    */
-  static Writer(obj: object, option?: { littleEndian: boolean, noCheck: boolean }): ArrayBuffer;
+  static Writer(obj: object, option?: NBT.WriteOption): ArrayBuffer;
 
   /**
    * Creates a reader.
-   * 
-   * @param buf - Input buffer.
+   *
+   * @param buf - Input buffer, or any view of one.
    * @param option - Options.
-   * @param option.littleEndian - Read as little endian if true.
-   * @param option.asBigInt - Read i64 as BigInt if true.
-   * @param option.asTypedArray - Read array and list as TypedArray if true.
-   * @param option.asProxy - Create proxied NBT object.
    */
-  constructor(buf: ArrayBuffer, option?: { littleEndian: boolean, asBigInt: boolean, asTypedArray: boolean, asProxy: boolean });
+  constructor(buf: NBT.Input, option?: NBT.ReadOption);
 
   /**
    * Get the input buffer.
    */
-  getBuffer(): ArrayBuffer;
+  getBuffer(): NBT.Input;
 
   /**
    * Get current offset.
@@ -95,12 +88,39 @@ declare class NBT {
 
   /**
    * Read a single NBT root tag.
-   * 
+   *
    * Returns null when read to the end.
    */
   read(): object | null;
 
-  [Symbol.iterator](): { next: Function };
+  /**
+   * Iterate the root tags left in the buffer, starting at the current offset
+   * without consuming this reader.
+   */
+  [Symbol.iterator](): IterableIterator<object>;
+}
+
+declare namespace NBT {
+  /** An ArrayBuffer, or any view of one such as a TypedArray or a Node Buffer. */
+  type Input = ArrayBuffer | ArrayBufferView;
+
+  interface ReadOption {
+    /** Read as little endian if true. */
+    littleEndian?: boolean;
+    /** Read i64 as BigInt if true. */
+    asBigInt?: boolean;
+    /** Read array and list as TypedArray if true. */
+    asTypedArray?: boolean;
+    /** Create proxied NBT object. */
+    asProxy?: boolean;
+  }
+
+  interface WriteOption {
+    /** Write as little endian if true. */
+    littleEndian?: boolean;
+    /** Disable circular reference detect for faster operation. */
+    noCheck?: boolean;
+  }
 }
 
 export = NBT;
